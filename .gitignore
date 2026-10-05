@@ -1,16 +1,30 @@
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-env/
+# Môi trường và cấu hình cá nhân
 .env
-cau-hinh.env
-data.db
-*.db
-*.sqlite
-*.sqlite3
-*.log
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+*.env
+backend/config/*
+
+# Python cache & artifacts
+**/__pycache__/
+*.py[cod]
+
+# Lịch sử làm bài cá nhân
+**/history.json
+
+# Bỏ qua hoàn toàn thư mục data/ ở root (dữ liệu nguồn tại local, không track lên GitHub)
+/data/
+
+# Quy tắc tương tự cho backend/data/ (phục vụ deploy Vercel serverless)
+backend/data/*/*
+!backend/data/*/markdown/
+!backend/data/*/markdown/**
+!backend/data/*/note/
+!backend/data/*/note/**
+!backend/data/*/note.md/
+!backend/data/*/note.md/**
+!backend/data/*/subject_config.json
+
+# Scripts test output & backups
+backend/scripts/test/
+.backup_images/
+
+.*/
