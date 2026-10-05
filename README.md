@@ -158,6 +158,4 @@ Tạo hoặc chỉnh sửa file `.md` trong thư mục `data/[Tên môn]/markdow
 - **explanation:** Định lý thiết lập mối liên hệ giữa tích phân xác định và nguyên hàm.
 ```
 
-> Xem chi tiết định dạng đầy đủ tại [`.agents/rules/data_markdown_format.md`](.agents/rules/data_markdown_format.md).
-
 ---
