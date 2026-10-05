@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hệ thống ôn luyện & thi trực tuyến</title>
+<style>
+:root{--p:#12305e;--a:#b71c1c;--g:#c9a227;--bg:#f5f3ee;--c:#fff;--t:#1d2433;--m:#667085;--ok:#13795b;--bd:#dcd8cc}
+*{box-sizing:border-box}body{margin:0;font:16px/1.55 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--t)}
+nav{background:var(--p);border-bottom:4px solid var(--g);display:flex;align-items:center;padding:0 16px;flex-wrap:wrap}
+nav b{margin-right:auto;padding:14px 0;color:#fff;font-size:17px}nav a{color:#d9e2f4;padding:14px 12px;cursor:pointer}nav a:hover{color:#fff;background:rgba(255,255,255,.1)}
+main{max-width:980px;margin:24px auto;padding:0 16px}
+.card{background:var(--c);border:1px solid var(--bd);border-radius:6px;padding:20px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.split{display:grid;grid-template-columns:3fr 1fr;gap:16px}
+@media(max-width:700px){.split{grid-template-columns:1fr}}
+h1,h2,h3{margin:.2em 0 .5em;color:var(--p);line-height:1.25}h1{font-size:30px}
+button{background:var(--p);color:#fff;border:0;border-radius:4px;padding:10px 18px;font:inherit;cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--g)}
+button.sec{background:#e9e6dc;color:var(--p)}button.red{background:var(--a)}button:disabled{opacity:.4;cursor:default}
+input,select{font:inherit;padding:9px 10px;border:1px solid var(--bd);border-radius:4px;width:100%;margin:4px 0 12px;background:#fff}
+label{font-size:14px;color:var(--m)}
+.opt{display:block;border:1.5px solid var(--bd);border-radius:6px;padding:12px 14px;margin:8px 0;cursor:pointer;background:#fff;color:var(--t);font-size:16px}
+.opt.sel{border-color:var(--p);background:#e8eef9}.opt.ok{border-color:var(--ok);background:#e5f4ee}.opt.bad{border-color:var(--a);background:#fbe9e9}
+.pal{display:flex;flex-wrap:wrap;gap:6px}.pal span{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--bd);border-radius:4px;cursor:pointer;font-size:14px}.pal .done{background:#cddcf5}.pal .cur{outline:2px solid var(--a)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.timer{font-weight:700;color:var(--a);font-size:22px}
+.exp{background:#fbf5df;border-left:4px solid var(--g);padding:10px 14px;margin-top:10px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd)}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}.err{color:var(--a)}.msg{color:var(--ok)}
+.chk{display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;color:var(--t)}.chk input{width:auto;margin:0}
+.big{font-size:56px;font-weight:700;color:var(--p)}
+</style></head><body>
+<nav></nav><main></main>
+<script>
+const $=s=>document.querySelector(s),DIFF=['Tất cả','Dễ','Trung bình','Khó'],L='ABCDE';
+let me=null,tk=localStorage.tk||'',tm=null,tab='bank';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const checked=()=>[...document.querySelectorAll('.tp:checked')].map(x=>+x.value);
+async function api(url,body,raw){
+  try{return await api0(url,body,raw)}catch(x){
+    throw x instanceof TypeError?new Error(location.protocol==='file:'?'Bạn đang mở trực tiếp file index.html. Hãy bấm đúp start.bat rồi mở địa chỉ http://localhost:3000':'Không kết nối được máy chủ. Hãy kiểm tra cửa sổ start.bat còn hoạt động không.'):x}}
+async function api0(url,body,raw){
+  const r=await fetch('/api/'+url,{method:body!==undefined?'POST':'GET',headers:{...(tk&&{Authorization:'Bearer '+tk}),...(body!==undefined&&!raw&&{'Content-Type':'application/json'})},body:raw?body:body!==undefined?JSON.stringify(body):undefined});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'Có lỗi xảy ra');return d}
+function show(h){clearInterval(tm);$('main').innerHTML=h;scrollTo(0,0)}
+function nav(){$('nav').innerHTML=`<b>HỆ THỐNG ÔN LUYỆN & THI TRỰC TUYẾN</b><a onclick="home()">Trang chủ</a><a onclick="practice()">Luyện tập</a><a onclick="rooms()">Phòng thi</a>${me?.role==='admin'?'<a onclick="admin()">Quản trị</a>':''}${me?`<a onclick="logout()">${esc(me.full_name)} · Thoát</a>`:'<a onclick="login()">Đăng nhập</a>'}`}
+async function init(){if(tk)try{me=await api('me')}catch{tk='';localStorage.removeItem('tk')}nav();home()}
+function logout(){tk='';me=null;localStorage.removeItem('tk');nav();home()}
+
+function home(){show(`<div class="card"><h1>Ôn luyện kiến thức, thi trực tuyến</h1><p>Luyện tập tự do không cần đăng nhập. Kỳ thi chính thức cần tài khoản.</p></div>
+<div class="grid"><div class="card"><h3>Luyện tập</h3><p>Chọn chủ đề, độ khó, số câu và thời gian. Xem kết quả và giải thích ngay sau khi nộp.</p><button onclick="practice()">Bắt đầu luyện tập</button></div>
+<div class="card"><h3>Phòng thi</h3><p>Vào đề thi thử hoặc kỳ thi chính thức do quản trị viên mở.</p><button onclick="rooms()">Xem phòng thi</button></div></div>`)}
+
+function login(reg){show(`<div class="card" style="max-width:420px;margin:auto"><h2>${reg?'Đăng ký tài khoản':'Đăng nhập'}</h2>${reg?'<label>Họ và tên</label><input id="fn"><label>Đơn vị</label><input id="un">':''}<label>Tài khoản</label><input id="u"><label>Mật khẩu</label><input id="p" type="password"><p class="err" id="er"></p><button onclick="doAuth(${!!reg})">${reg?'Đăng ký':'Đăng nhập'}</button> <button class="sec" onclick="login(${!reg})">${reg?'Tôi đã có tài khoản':'Tạo tài khoản'}</button></div>`)}
+async function doAuth(reg){try{const d=await api(reg?'register':'login',{username:$('#u').value,password:$('#p').value,full_name:reg&&$('#fn').value,unit:reg&&$('#un').value});tk=d.token;localStorage.tk=tk;me=await api('me');nav();home()}catch(x){$('#er').textContent=x.message}}
+
+async function practice(){const t=await api('topics');show(`<div class="card"><h2>Thiết lập bài luyện tập</h2><label>Chủ đề (không chọn = tất cả)</label><div>${t.map(x=>`<label class="chk"><input type="checkbox" class="tp" value="${x.id}">${esc(x.name)} (${x.n})</label>`).join('')||'<p>Chưa có câu hỏi. Hãy nhờ quản trị viên import.</p>'}</div>
+<label>Độ khó</label><select id="df">${DIFF.map((d,i)=>`<option value="${i}">${d}</option>`).join('')}</select><label>Số câu hỏi</label><input id="n" type="number" min="1" value="10"><label>Thời gian</label><select id="du"><option value="30">30 phút</option><option value="60">60 phút</option><option value="0">Không giới hạn</option></select><p class="err" id="er"></p><button onclick="startPractice()">Bắt đầu làm bài</button></div>`)}
+async function startPractice(){try{quiz(await api('practice/start',{topic_ids:checked(),difficulty:+$('#df').value,count:+$('#n').value,duration_min:+$('#du').value}))}catch(x){$('#er').textContent=x.message}}
+
+async function rooms(){const r=await api('exams');show(`<h2>Phòng thi</h2>${r.map(e=>`<div class="card bar"><div><h3>${esc(e.title)} <small>${e.kind==='official'?'(Chính thức – cần đăng nhập)':'(Thi thử)'}</small></h3>${e.question_count} câu, ${e.duration_min?e.duration_min+' phút':'không giới hạn thời gian'}${e.start_at?`. Mở: ${esc(e.start_at.replace('T',' '))}`:''}${e.end_at?`. Đóng: ${esc(e.end_at.replace('T',' '))}`:''}</div><button onclick="enter(${e.id},${!!e.has_code})">Vào thi</button></div>`).join('')||'<div class="card">Hiện chưa có phòng thi nào đang mở.</div>'}`)}
+async function enter(id,hc){const code=hc?prompt('Nhập mã phòng thi:'):'';if(hc&&code===null)return;try{quiz(await api(`exams/${id}/start`,{code}))}catch(x){alert(x.message);if(/đăng nhập/.test(x.message))login()}}
+
+function quiz(d){
+  const Q=d.questions,a={},t0=Date.now(),end=d.duration_min?Date.now()+d.seconds_left*1000:0;let i=0;
+  const draw=()=>{const q=Q[i];
+    $('#q').innerHTML=`<p><b>Câu ${i+1}/${Q.length}.</b> ${esc(q.content)}</p>`+q.options.map((o,k)=>`<div class="opt ${a[q.id]===k?'sel':''}" onclick="pickAns(${k})">${L[k]}. ${esc(o)}</div>`).join('')+`<button class="sec" ${i?'':'disabled'} onclick="go(-1)">Câu trước</button> <button class="sec" ${i<Q.length-1?'':'disabled'} onclick="go(1)">Câu sau</button>`;
+    $('#pal').innerHTML=Q.map((x,j)=>`<span class="${a[x.id]!==undefined?'done':''} ${j===i?'cur':''}" onclick="go(${j-i})">${j+1}</span>`).join('')};
+  window.pickAns=k=>{a[Q[i].id]=k;draw()};window.go=n=>{i+=n;draw()};
+  window.finish=async auto=>{if(!auto&&!confirm(`Bạn đã trả lời ${Object.keys(a).length}/${Q.length} câu. Nộp bài?`))return;clearInterval(tm);
+    try{result(await api(`attempts/${d.id}/submit`,{answers:a}))}catch(x){alert(x.message)}};
+  show(`<div class="card bar"><b>${{official:'Thi chính thức',mock:'Thi thử',practice:'Luyện tập'}[d.mode]}</b><span class="timer" id="clk"></span><button class="red" onclick="finish()">Nộp bài</button></div><div class="split"><div class="card" id="q"></div><div class="card"><div class="pal" id="pal"></div></div></div>`);
+  const tick=()=>{const s=end?Math.max(0,Math.round((end-Date.now())/1000)):Math.round((Date.now()-t0)/1000);
+    $('#clk').textContent=`${end?'Còn lại':'Đã làm'}: ${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;if(end&&s<=0)finish(true)};
+  tick();tm=setInterval(tick,1000);draw()}
+
+function result(d){show(`<div class="card" style="text-align:center"><div class="big">${d.score}/10</div><p>Đúng ${d.correct_count}/${d.total} câu. Thời gian làm bài: ${Math.floor(d.time_spent/60)} phút ${d.time_spent%60} giây.</p><button onclick="home()">Về trang chủ</button></div>`+
+  d.review.map((r,i)=>`<div class="card"><p><b>Câu ${i+1}.</b> ${esc(r.content)}</p>${r.options.map((o,k)=>`<div class="opt ${k===r.correct?'ok':k===r.chosen?'bad':''}">${L[k]}. ${esc(o)}${k===r.chosen?' (bạn chọn)':''}${k===r.correct?' (đáp án đúng)':''}</div>`).join('')}${r.chosen===null?'<p class="err">Bạn chưa trả lời câu này.</p>':''}${r.explanation?`<div class="exp"><b>Giải thích:</b> ${esc(r.explanation)}</div>`:''}</div>`).join(''))}
+
+async function admin(t){tab=t||tab;let body='';
+  if(tab==='bank'){const tp=await api('topics');body=`<div class="card"><h3>Import câu hỏi từ Excel</h3><p>Các cột: Câu hỏi, A–E, Đáp án (A–E), Độ khó (Dễ/Trung bình/Khó), Chủ đề, Giải thích. <a href="/api/admin/template">Tải file mẫu</a></p><input type="file" id="f" accept=".xlsx,.xls,.csv"><button onclick="imp()">Import</button><div id="r"></div></div><div class="card"><h3>Ngân hàng câu hỏi theo chủ đề</h3><table>${tp.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.n} câu</td></tr>`).join('')||'<tr><td>Chưa có dữ liệu</td></tr>'}</table></div>`}
+  if(tab==='rooms'){const[tp,ex]=await Promise.all([api('topics'),api('admin/exams')]);body=`<div class="card"><h3>Tạo phòng thi</h3><div class="grid"><div><label>Tên phòng</label><input id="ti"><label>Loại</label><select id="ki"><option value="mock">Thi thử (không cần đăng nhập)</option><option value="official">Chính thức (bắt buộc đăng nhập)</option></select><label>Mã vào phòng (không bắt buộc)</label><input id="co"></div><div><label>Số câu</label><input id="qn" type="number" value="20"><label>Độ khó</label><select id="df">${DIFF.map((d,i)=>`<option value="${i}">${d}</option>`).join('')}</select><label>Thời gian (phút, 0 = không giới hạn)</label><input id="du" type="number" value="30"></div><div><label>Mở từ</label><input id="st" type="datetime-local"><label>Đóng lúc</label><input id="en" type="datetime-local"><label>Chủ đề (không chọn = tất cả)</label><div>${tp.map(x=>`<label class="chk"><input type="checkbox" class="tp" value="${x.id}">${esc(x.name)}</label>`).join('')}</div></div></div><button onclick="mk()">Tạo phòng thi</button> <span class="err" id="er"></span></div>
+<div class="card"><table><tr><th>Phòng</th><th>Loại</th><th>Mã</th><th>Đã nộp</th><th></th></tr>${ex.map(e=>`<tr><td>${esc(e.title)}</td><td>${e.kind==='official'?'Chính thức':'Thi thử'}</td><td>${esc(e.code||'')}</td><td>${e.done}</td><td><button class="sec" onclick="tg(${e.id})">${e.status==='open'?'Đóng phòng':'Mở lại'}</button></td></tr>`).join('')}</table></div>`}
+  if(tab==='board'){const ex=await api('admin/exams');body=`<div class="card"><label>Chọn phòng thi</label><select onchange="lb(this.value)"><option value="">-- Chọn --</option>${ex.map(e=>`<option value="${e.id}">${esc(e.title)}</option>`).join('')}</select><div id="lbx"></div></div>`}
+  show(`<div class="tabs">${[['bank','Ngân hàng câu hỏi'],['rooms','Phòng thi'],['board','Bảng xếp hạng']].map(([k,v])=>`<button class="${k===tab?'':'sec'}" onclick="admin('${k}')">${v}</button>`).join('')}</div>`+body)}
+async function imp(){const f=$('#f').files[0];if(!f)return;$('#r').textContent='Đang xử lý...';
+  try{const d=await api('admin/import',await f.arrayBuffer(),true);$('#r').innerHTML=`<p class="msg">Đã thêm ${d.added} câu hỏi.</p>`+d.errors.map(x=>`<div class="err">${esc(x)}</div>`).join('')}catch(x){$('#r').textContent=x.message}}
+async function mk(){try{await api('admin/exams',{title:$('#ti').value,kind:$('#ki').value,code:$('#co').value,question_count:+$('#qn').value,difficulty:+$('#df').value,duration_min:+$('#du').value,start_at:$('#st').value,end_at:$('#en').value,topic_ids:checked()});admin('rooms')}catch(x){$('#er').textContent=x.message}}
+async function tg(id){await api(`admin/exams/${id}/toggle`,{});admin('rooms')}
+async function lb(id){if(!id)return;const r=await api('admin/leaderboard/'+id);$('#lbx').innerHTML=`<table><tr><th>Hạng</th><th>Họ tên</th><th>Đơn vị</th><th>Điểm</th><th>Số câu đúng</th><th>Thời gian</th></tr>${r.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.full_name||'Ẩn danh')}</td><td>${esc(x.unit||'')}</td><td><b>${x.score}</b></td><td>${x.correct_count}/${x.total}</td><td>${x.time_spent}s</td></tr>`).join('')||'<tr><td colspan="6">Chưa có bài nộp.</td></tr>'}</table>`}
+init();
+</script></body></html>
