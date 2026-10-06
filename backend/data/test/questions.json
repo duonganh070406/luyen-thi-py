@@ -1,0 +1,34 @@
+[
+  {
+    "id": "q_1791297999_1",
+    "question": "Ngày Pháp luật nước Cộng hòa xã hội chủ nghĩa Việt Nam được tổ chức hằng năm vào ngày nào?",
+    "options": [
+      "1 tháng 5",
+      "2 tháng 9",
+      "9 tháng 11",
+      "20 tháng 11"
+    ],
+    "answer": "C",
+    "difficulty": "De",
+    "topic": "Pháp luật",
+    "explanation": "Ngày 9/11 hằng năm là Ngày Pháp luật của Việt Nam gắn với việc Quốc hội thông qua bản Hiến pháp đầu tiên ngày 9/11/1946.",
+    "created_at": 1791297999,
+    "updated_at": 1791297999
+  },
+  {
+    "id": "q_1791297999_2",
+    "question": "Biện pháp nào sau đây giúp bảo vệ tài khoản trực tuyến hiệu quả nhất?",
+    "options": [
+      "Dùng chung một mật khẩu đơn giản cho mọi tài khoản",
+      "Dùng mật khẩu dài, khác nhau cho từng tài khoản và bật xác thực hai lớp",
+      "Gửi mật khẩu cho bạn bè giữ hộ để khỏi quên",
+      "Chỉ đổi mật khẩu sau khi đã bị mất tài khoản"
+    ],
+    "answer": "B",
+    "difficulty": "Trung binh",
+    "topic": "An toàn thông tin",
+    "explanation": "Mật khẩu dài, không dùng lại giữa các tài khoản và có xác thực hai lớp giúp hạn chế rủi ro khi một mật khẩu bị lộ.",
+    "created_at": 1791297999,
+    "updated_at": 1791297999
+  }
+]

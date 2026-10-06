@@ -24,7 +24,6 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from src.config import DATA_ROOT
 from src.utils import parse_exam_file, read_json_list, resolve_subject_dir, write_json_atomic
 
 LETTERS = ["A", "B", "C", "D", "E"]
@@ -216,11 +215,8 @@ def pick_with_mix(
     if diff.lower() in ("hon hop", "tat ca", "mixed", "all", ""):
         rng.shuffle(items)
         return items[: max(0, count)]
-    # chuan hoa ten
+    # chuan hoa ten ("De"/"Dễ"/"easy"/1 -> "De", ...)
     key = normalize_difficulty(diff) if diff not in MIX_RATIOS else diff
-    # map "Dễ" có dấu về "De"
-    if diff in ("Dễ", "Dễ"):
-        key = "De"
     ratio = MIX_RATIOS.get(key, MIX_RATIOS["Trung binh"])
     buckets: dict[str, list[dict[str, Any]]] = {"De": [], "Trung binh": [], "Kho": []}
     for q in items:

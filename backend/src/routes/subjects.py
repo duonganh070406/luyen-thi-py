@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from src.config import DATA_ROOT
+from src.bank import pick_with_mix, shuffle_options
 from src.models import (
     HistoryAttemptCreate,
     SubjectConfigModel,
@@ -529,20 +530,12 @@ def get_comprehensive_quiz(
     except Exception:
         pass
 
-    # Loc theo chu de hon hop + do kho co kiem soat ty le tron (neu FE gui kem)
-    try:
-        topics = getattr(quiz_config, "topics", None) or []
-        difficulty = getattr(quiz_config, "difficulty", None) or ""
-        if topics:
-            wanted = {str(t).strip().lower() for t in topics if str(t).strip()}
-            if wanted and "hon hop" not in wanted and "tat ca" not in wanted:
-                all_questions = [
-                    q for q in all_questions
-                    if str(q.get("topic", "Chung")).strip().lower() in wanted
-                ]
-        if difficulty and str(difficulty).strip().lower() not in ("hon hop", "tat ca", "all", ""):
-            from src.bank import pick_with_mix
-
+    # Loc theo chu de hon hop + do kho co kiem soat ty le tron (neu FE gui kem).
+    # Khong co topics/difficulty -> roi xuong logic cu (ty le theo loai cau).
+    _topics = list(getattr(quiz_config, "topics", None) or [])
+    _difficulty = str(getattr(quiz_config, "difficulty", None) or "")
+    if _topics or _difficulty.strip().lower() not in ("hon hop", "tat ca", "all", ""):
+        try:
             num = quiz_config.num_questions if quiz_config.num_questions not in (None, -1) else 40
             picked = pick_with_mix(
                 [
@@ -557,20 +550,21 @@ def get_comprehensive_quiz(
                     }
                     for q in all_questions
                 ],
-                difficulty=str(difficulty),
-                topics=[],
+                difficulty=_difficulty or "Hon hop",
+                topics=_topics,
                 count=int(num),
             )
             all_questions = [p["_raw"] for p in picked]
             if getattr(quiz_config, "shuffle_options", False):
-                from src.bank import shuffle_options as _sh
-
-                all_questions = [_sh({**q, "options": q.get("options", []), "answer": q.get("answer", 0)}, __import__("random").Random()) for q in all_questions]
+                all_questions = [
+                    shuffle_options({**q, "options": q.get("options", []), "answer": q.get("answer", 0)}, random.Random())
+                    for q in all_questions
+                ]
             if getattr(quiz_config, "shuffle_questions", True):
                 random.shuffle(all_questions)
             return all_questions
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     single_qs = [q for q in all_questions if q.get("type") == "single"]
     multi_qs = [q for q in all_questions if q.get("type") == "multiple"]

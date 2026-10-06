@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from src import auth as auth_store
@@ -42,6 +42,14 @@ def login(body: LoginBody):
 @router.get("/api/auth/me")
 def me(user: auth_store.AuthUser = Depends(auth_store.get_current_user)):
     return {"username": user.username, "role": user.role}
+
+
+@router.post("/api/auth/logout")
+def logout(authorization: str | None = Header(default=None)):
+    """Thu hoi token phia server (client tu xoa ban sao local)."""
+    if authorization and authorization.lower().startswith("bearer "):
+        auth_store.revoke_token(authorization[7:].strip())
+    return {"ok": True}
 
 
 @router.get("/api/auth/users")

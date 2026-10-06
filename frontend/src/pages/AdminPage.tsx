@@ -5,7 +5,7 @@ import {
   currentUser, listSubjects, getBank, addBankQuestion, deleteBankQuestion,
   updateBankQuestion, importBankFile, createRoom, listRooms, closeRoom,
   getMonitor, getLeaderboard, editScore, listReports, updateReport,
-  suggestDifficulty, getBankTopics,
+  suggestDifficulty, getBankTopics, exportRoomCsv,
 } from '../services/api.ts';
 
 const TABS = [
@@ -277,19 +277,8 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     }
   };
 
-  const doExport = async (roomId: string, code: string) => {
-    const t = localStorage.getItem('eq_token');
-    const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
-    const res = await fetch(`${base}/api/rooms/${encodeURIComponent(roomId)}/export`, {
-      headers: t ? { Authorization: `Bearer ${t}` } : {},
-    });
-    const text = await res.text();
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `bao-cao-${code}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const doExport = (roomId: string) => {
+    exportRoomCsv(roomId);
   };
 
   return (
@@ -348,7 +337,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
                       <Lock size={12} /> Dong + thu bai
                     </button>
                   )}
-                  <button type="button" onClick={() => doExport(r.id, r.code)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold cursor-pointer">
+                  <button type="button" onClick={() => doExport(r.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold cursor-pointer">
                     <Download size={12} /> Bao cao CSV
                   </button>
                 </div>

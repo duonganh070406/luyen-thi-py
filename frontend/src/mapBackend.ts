@@ -1,5 +1,4 @@
-import type { HistoryAppendPayload } from './services/api.ts';
-import type { Attempt, Question, QuestionType, Subject } from './types.ts';
+import type { Attempt, Question, QuestionType } from './types.ts';
 
 
 

@@ -194,8 +194,16 @@ export async function register(username: string, password: string): Promise<Auth
 }
 
 export function logout() {
+  const t = localStorage.getItem('eq_token');
   localStorage.removeItem('eq_token');
   localStorage.removeItem('eq_user');
+  // Thu hoi token phia server (fire-and-forget, khong chan UI)
+  if (t) {
+    fetch(url('/api/auth/logout'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${t}` },
+    }).catch(() => {});
+  }
 }
 
 export function currentUser(): { username: string; role: string } | null {
@@ -370,8 +378,22 @@ export async function editScore(roomId: string, participant: string, score: numb
   });
 }
 
-export function exportRoomUrl(roomId: string): string {
-  return url(`/api/rooms/${encodeURIComponent(roomId)}/export`);
+export function exportRoomCsv(roomId: string): void {
+  // Tai bao cao CSV kem token admin (endpoint yeu cau quyen admin).
+  const t = localStorage.getItem('eq_token');
+  fetch(url(`/api/rooms/${encodeURIComponent(roomId)}/export`), {
+    headers: t ? { Authorization: `Bearer ${t}` } : {},
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `bao-cao-${roomId}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch((e) => alert(`Khong tai duoc bao cao: ${e instanceof Error ? e.message : e}`));
 }
 
 export async function joinRoom(code: string, participant: string): Promise<any> {

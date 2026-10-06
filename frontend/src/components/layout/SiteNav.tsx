@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { GraduationCap, LogOut, ShieldCheck, Menu, X } from 'lucide-react';
-import { currentUser, logout } from '../../services/api.ts';
+import { currentUser, fetchMe, logout } from '../../services/api.ts';
 
 const LINKS = [
   { to: '/', label: 'Trang chu', end: true },
@@ -21,6 +21,13 @@ export default function SiteNav() {
     const sync = () => setUser(currentUser());
     window.addEventListener('storage', sync);
     window.addEventListener('eq-auth', sync);
+    // Tu xac minh token con hieu luc khong (vd server vua reset data)
+    if (currentUser()) {
+      fetchMe().catch(() => {
+        logout();
+        setUser(null);
+      });
+    }
     return () => {
       window.removeEventListener('storage', sync);
       window.removeEventListener('eq-auth', sync);
