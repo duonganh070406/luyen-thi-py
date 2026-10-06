@@ -3,4 +3,5 @@ openai==2.48.0
 pydantic==2.13.4
 uvicorn==0.51.0
 python-multipart
+openpyxl
 

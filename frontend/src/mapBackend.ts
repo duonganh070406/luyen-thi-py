@@ -57,7 +57,7 @@ export function questionFromApi(subjectId: string, raw: Record<string, unknown>)
     name: typeof raw.name === 'string' ? raw.name : undefined,
     subjectId,
     type,
-    text: typeof raw.question === 'string' ? raw.question : '',
+    text: typeof raw.question === 'string' ? raw.question : (typeof raw.text === 'string' ? raw.text : ''),
     options: Array.isArray(raw.options) ? (raw.options as string[]) : [],
     leftOptions,
     rightOptions,
@@ -65,6 +65,8 @@ export function questionFromApi(subjectId: string, raw: Record<string, unknown>)
     referenceAnswer,
     explanation: typeof raw.explanation === 'string' ? raw.explanation : '',
     addedAt: Date.now(),
+    difficulty: typeof raw.difficulty === 'string' ? raw.difficulty : undefined,
+    topic: typeof raw.topic === 'string' ? raw.topic : undefined,
   };
 }
 

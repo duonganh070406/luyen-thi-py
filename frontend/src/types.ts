@@ -15,6 +15,10 @@ export interface Question {
   referenceAnswer?: string;
   explanation?: string;
   addedAt: number;
+  /** Muc do kho: De | Trung binh | Kho (ngan hang de moi) */
+  difficulty?: string;
+  /** Linh vuc / chu de (ngan hang de moi) */
+  topic?: string;
 }
 
 export interface Subject {

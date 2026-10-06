@@ -10,6 +10,13 @@ backend/config/*
 # Lịch sử làm bài cá nhân
 **/history.json
 
+# Du lieu runtime cua he thong thi (phien dang nhap, phong thi, bao loi) — khong commit
+backend/data/users.json
+backend/data/tokens.json
+backend/data/rooms.json
+backend/data/room_sessions.json
+backend/data/*/reports.json
+
 # Bỏ qua hoàn toàn thư mục data/ ở root (dữ liệu nguồn tại local, không track lên GitHub)
 /data/
 
@@ -22,6 +29,7 @@ backend/data/*/*
 !backend/data/*/note.md/
 !backend/data/*/note.md/**
 !backend/data/*/subject_config.json
+!backend/data/*/questions.json
 
 # Scripts test output & backups
 backend/scripts/test/

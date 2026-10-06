@@ -10,6 +10,15 @@ import { useNavigate, useParams, useLocation, Routes, Route, Navigate } from 're
 
 import './registerStrategies.ts';
 
+import SiteNav from './components/layout/SiteNav.tsx';
+import HomePage from './pages/HomePage.tsx';
+import AboutPage from './pages/AboutPage.tsx';
+import ContactPage from './pages/ContactPage.tsx';
+import LoginPage from './pages/LoginPage.tsx';
+import PracticePage from './pages/PracticePage.tsx';
+import ExamRoomPage from './pages/ExamRoomPage.tsx';
+import AdminPage from './pages/AdminPage.tsx';
+
 import QuizView from './components/QuizView.tsx';
 import FlashcardView from './components/FlashcardView.tsx';
 import Sidebar from './components/layout/Sidebar.tsx';
@@ -159,7 +168,7 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-[calc(100vh-3.5rem)] supports-[height:100dvh]:h-[calc(100dvh-3.5rem)] bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <Sidebar
         subjects={state.subjects}
         selectedSubjectId={selectedSubjectId}
@@ -356,15 +365,26 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AppContent />} />
-      <Route path="/subject/:subjectId" element={<AppContent />} />
-      <Route path="/subject/:subjectId/note/*" element={<AppContent />} />
-      <Route path="/subject/:subjectId/exam/*" element={<AppContent />} />
-      <Route path="/subject/:subjectId/flashcard/*" element={<AppContent />} />
-      <Route path="/subject/:subjectId/quiz/random" element={<AppContent />} />
-      <Route path="/subject/:subjectId/history/:attemptId" element={<AppContent />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <SiteNav />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/gioi-thieu" element={<AboutPage />} />
+          <Route path="/luyen-thi" element={<PracticePage />} />
+          <Route path="/phong-thi" element={<ExamRoomPage />} />
+          <Route path="/lien-he" element={<ContactPage />} />
+          <Route path="/dang-nhap" element={<LoginPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/subject/:subjectId" element={<AppContent />} />
+          <Route path="/subject/:subjectId/note/*" element={<AppContent />} />
+          <Route path="/subject/:subjectId/exam/*" element={<AppContent />} />
+          <Route path="/subject/:subjectId/flashcard/*" element={<AppContent />} />
+          <Route path="/subject/:subjectId/quiz/random" element={<AppContent />} />
+          <Route path="/subject/:subjectId/history/:attemptId" element={<AppContent />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </div>
   );
 }

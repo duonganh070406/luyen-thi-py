@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.config import DATA_ROOT, get_cors_origins
-from src.routes import browse, health, subjects
+from src.routes import auth, bank, browse, health, rooms, subjects
 
 app = FastAPI(
     title="EduQuest Storage",
@@ -32,5 +32,8 @@ if DATA_ROOT.is_dir():
     app.mount("/data", StaticFiles(directory=DATA_ROOT, html=False), name="data")
 
 app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(bank.router)
+app.include_router(rooms.router)
 app.include_router(browse.router)
 app.include_router(subjects.router)

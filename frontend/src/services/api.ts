@@ -158,3 +158,234 @@ export async function getComprehensiveQuiz(
     body: JSON.stringify(params),
   });
 }
+
+// ---------- Auth (admin/user, token Bearer) ----------
+
+function authHeaders(): Record<string, string> {
+  const t = localStorage.getItem('eq_token');
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+export interface AuthResult {
+  ok: boolean;
+  token: string;
+  username: string;
+  role: string;
+}
+
+export async function login(username: string, password: string): Promise<AuthResult> {
+  const r = await fetchJson<AuthResult>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+  localStorage.setItem('eq_token', r.token);
+  localStorage.setItem('eq_user', JSON.stringify({ username: r.username, role: r.role }));
+  return r;
+}
+
+export async function register(username: string, password: string): Promise<AuthResult> {
+  const r = await fetchJson<AuthResult>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+  localStorage.setItem('eq_token', r.token);
+  localStorage.setItem('eq_user', JSON.stringify({ username: r.username, role: r.role }));
+  return r;
+}
+
+export function logout() {
+  localStorage.removeItem('eq_token');
+  localStorage.removeItem('eq_user');
+}
+
+export function currentUser(): { username: string; role: string } | null {
+  try {
+    const raw = localStorage.getItem('eq_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchMe(): Promise<{ username: string; role: string }> {
+  return fetchJson('/api/auth/me', { headers: authHeaders() });
+}
+
+// ---------- Ngan hang de + import ----------
+
+export interface BankItem {
+  id: string;
+  question: string;
+  options: string[];
+  answer: string;
+  difficulty: string;
+  topic: string;
+  explanation: string;
+}
+
+export async function getBank(subject: string): Promise<{ items: BankItem[]; total: number; counts: any }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank`);
+}
+
+export async function getBankTopics(subject: string): Promise<{ topics: string[]; counts: any }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank/topics`);
+}
+
+export async function addBankQuestion(subject: string, body: Omit<BankItem, 'id'>): Promise<any> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateBankQuestion(subject: string, qid: string, body: Partial<BankItem>): Promise<any> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank/${encodeURIComponent(qid)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteBankQuestion(subject: string, qid: string): Promise<any> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank/${encodeURIComponent(qid)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+}
+
+export async function importBankFile(subject: string, file: File): Promise<{ ok: boolean; added: number; total: number; errors: string[] }> {
+  const s = encodeURIComponent(subject);
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(url(`/api/subjects/${s}/import`), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: fd,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
+  }
+  return res.json();
+}
+
+// ---------- Luyen thi nang cao ----------
+
+export interface PracticeConfig {
+  topics: string[];
+  difficulty: string;
+  count: number;
+  shuffle_questions: boolean;
+  shuffle_options: boolean;
+}
+
+export async function getPracticeQuiz(subject: string, cfg: PracticeConfig): Promise<unknown[]> {
+  const s = encodeURIComponent(subject);
+  return fetchJson<unknown[]>(`/api/subjects/${s}/practice-quiz`, {
+    method: 'POST',
+    body: JSON.stringify(cfg),
+  });
+}
+
+export async function getCompetency(subject: string): Promise<{ byTopic: Record<string, { correct: number; wrong: number }>; byDifficulty: Record<string, { correct: number; wrong: number }> }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/competency`);
+}
+
+export async function suggestDifficulty(subject: string, questionId?: string, question?: string): Promise<any> {
+  const s = encodeURIComponent(subject);
+  const q = `?question_id=${encodeURIComponent(questionId ?? '')}&question=${encodeURIComponent(question ?? '')}`;
+  return fetchJson(`/api/subjects/${s}/ml-difficulty${q}`);
+}
+
+// ---------- Bao loi ----------
+
+export async function reportQuestion(subject: string, question_id: string, message: string, reporter?: string): Promise<any> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/reports`, {
+    method: 'POST',
+    body: JSON.stringify({ question_id, message, reporter }),
+  });
+}
+
+export async function listReports(subject: string): Promise<{ items: any[]; total: number }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/reports`, { headers: authHeaders() });
+}
+
+export async function updateReport(subject: string, rid: string, status: string): Promise<any> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/reports/${encodeURIComponent(rid)}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+}
+
+// ---------- Phong thi ----------
+
+export interface RoomPayload {
+  name: string;
+  subject: string;
+  topics: string[];
+  difficulty: string;
+  count: number;
+  time_limit: number;
+  shuffle_questions: boolean;
+  shuffle_options: boolean;
+  max_violations: number;
+}
+
+export async function createRoom(body: RoomPayload): Promise<{ ok: boolean; room: any }> {
+  return fetchJson('/api/rooms', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+}
+
+export async function listRooms(): Promise<{ rooms: any[] }> {
+  return fetchJson('/api/rooms', { headers: authHeaders() });
+}
+
+export async function closeRoom(roomId: string): Promise<any> {
+  return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/close`, { method: 'POST', headers: authHeaders() });
+}
+
+export async function getMonitor(roomId: string): Promise<{ room: any; participants: any[]; total: number }> {
+  return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/monitor`, { headers: authHeaders() });
+}
+
+export async function getLeaderboard(roomId: string): Promise<{ room: any; ranking: any[] }> {
+  return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/leaderboard`);
+}
+
+export async function editScore(roomId: string, participant: string, score: number): Promise<any> {
+  return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/leaderboard`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ participant, score }),
+  });
+}
+
+export function exportRoomUrl(roomId: string): string {
+  return url(`/api/rooms/${encodeURIComponent(roomId)}/export`);
+}
+
+export async function joinRoom(code: string, participant: string): Promise<any> {
+  return fetchJson('/api/rooms/join', { method: 'POST', body: JSON.stringify({ code, participant }) });
+}
+
+export async function saveRoomAnswer(code: string, participant: string, question_id: string, answer: any): Promise<any> {
+  return fetchJson('/api/rooms/answer', { method: 'POST', body: JSON.stringify({ code, participant, question_id, answer }) });
+}
+
+export async function reportViolation(code: string, participant: string): Promise<any> {
+  return fetchJson('/api/rooms/violation', { method: 'POST', body: JSON.stringify({ code, participant }) });
+}
+
+export async function submitRoom(code: string, participant: string): Promise<any> {
+  return fetchJson('/api/rooms/submit', { method: 'POST', body: JSON.stringify({ code, participant }) });
+}

@@ -47,5 +47,10 @@ class QuizConfigModel(BaseModel):
     short_answer: float | None = 0.1
     matching: float | None = 0.0
     sources: list[str] | None = None
+    # Mo rong: luyen theo chu de / do kho co kiem soat ty le tron + tron de
+    topics: list[str] | None = None
+    difficulty: str | None = None
+    shuffle_questions: bool | None = True
+    shuffle_options: bool | None = False
 
 

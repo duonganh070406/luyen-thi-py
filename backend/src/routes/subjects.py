@@ -60,7 +60,7 @@ def list_subjects(include_inactive: bool = False) -> list[SubjectDetailResponse]
     for entry in sorted(DATA_ROOT.iterdir(), key=lambda p: p.name.lower()):
         if not entry.is_dir():
             continue
-        if not has_exam_files(entry):
+        if not has_exam_files(entry) and not (entry / "questions.json").is_file():
             continue
         config_dict = read_subject_config(entry)
         # Ẩn môn học nếu active là False và không yêu cầu hiển thị tất cả
@@ -507,6 +507,70 @@ def get_comprehensive_quiz(
             all_questions.extend(questions)
         except Exception:
             pass  # Bỏ qua nếu lỗi parse
+
+    # Gop them ngan hang de (questions.json import tu Excel/CSV) de luyen theo chu de/do kho
+    try:
+        from src import bank as bank_store
+
+        for bq in bank_store.unified_questions(subject):
+            all_questions.append(
+                {
+                    "id": bq.get("id"),
+                    "type": "single",
+                    "name": bq.get("id"),
+                    "question": bq.get("question", ""),
+                    "options": bq.get("options", []),
+                    "answer": bq.get("answer", 0),
+                    "explanation": bq.get("explanation", ""),
+                    "difficulty": bq.get("difficulty", "Trung binh"),
+                    "topic": bq.get("topic", "Chung"),
+                }
+            )
+    except Exception:
+        pass
+
+    # Loc theo chu de hon hop + do kho co kiem soat ty le tron (neu FE gui kem)
+    try:
+        topics = getattr(quiz_config, "topics", None) or []
+        difficulty = getattr(quiz_config, "difficulty", None) or ""
+        if topics:
+            wanted = {str(t).strip().lower() for t in topics if str(t).strip()}
+            if wanted and "hon hop" not in wanted and "tat ca" not in wanted:
+                all_questions = [
+                    q for q in all_questions
+                    if str(q.get("topic", "Chung")).strip().lower() in wanted
+                ]
+        if difficulty and str(difficulty).strip().lower() not in ("hon hop", "tat ca", "all", ""):
+            from src.bank import pick_with_mix
+
+            num = quiz_config.num_questions if quiz_config.num_questions not in (None, -1) else 40
+            picked = pick_with_mix(
+                [
+                    {
+                        "id": q.get("id"),
+                        "question": q.get("question", ""),
+                        "options": q.get("options", []),
+                        "answer": 0,
+                        "difficulty": q.get("difficulty", "Trung binh"),
+                        "topic": q.get("topic", "Chung"),
+                        "_raw": q,
+                    }
+                    for q in all_questions
+                ],
+                difficulty=str(difficulty),
+                topics=[],
+                count=int(num),
+            )
+            all_questions = [p["_raw"] for p in picked]
+            if getattr(quiz_config, "shuffle_options", False):
+                from src.bank import shuffle_options as _sh
+
+                all_questions = [_sh({**q, "options": q.get("options", []), "answer": q.get("answer", 0)}, __import__("random").Random()) for q in all_questions]
+            if getattr(quiz_config, "shuffle_questions", True):
+                random.shuffle(all_questions)
+            return all_questions
+    except Exception:
+        pass
 
     single_qs = [q for q in all_questions if q.get("type") == "single"]
     multi_qs = [q for q in all_questions if q.get("type") == "multiple"]
