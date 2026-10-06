@@ -15,11 +15,12 @@ export default function ExamRoomPage() {
   const [maxV, setMaxV] = useState(3);
   const [timeLeft, setTimeLeft] = useState(0);
   const [done, setDone] = useState<{ score: number; total: number } | null>(null);
+  const [detail, setDetail] = useState<any[]>([]);
   const [ranking, setRanking] = useState<any[]>([]);
   const [error, setError] = useState('');
   const [warn, setWarn] = useState('');
   const doneRef = useRef(false);
-  const credRef = useRef({ code: '', participant: '' });
+  const credRef = useRef({ code: '', participant: '', ticket: '' });
 
   // restore session
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ExamRoomPage() {
         if (s.code && s.participant) {
           setCode(s.code);
           setName(s.participant);
+          credRef.current = { code: s.code, participant: s.participant, ticket: s.ticket || '' };
         }
       } catch { /* ignore */ }
     }
@@ -39,7 +41,7 @@ export default function ExamRoomPage() {
   useEffect(() => {
     if (!room || done || timeLeft <= 0) return;
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
-    if (timeLeft === 1) doSubmit(true);
+    if (timeLeft === 1) void doSubmit(true);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, room, done]);
@@ -50,11 +52,13 @@ export default function ExamRoomPage() {
     const onHide = async () => {
       if (document.hidden && !doneRef.current) {
         try {
-          const r = await reportViolation(credRef.current.code, credRef.current.participant);
+          const r = await reportViolation(credRef.current.code, credRef.current.participant, credRef.current.ticket);
           setViolations(r.violations ?? 0);
           if (r.submitted) {
-            setWarn(`Bạn đã chuyển tab ${r.violations}/${r.max} lần — bài thi bị tự động thu!`);
-            doSubmit(true, true);
+            setWarn(r.expired
+              ? 'Đã hết giờ làm bài — hệ thống tự động thu bài!'
+              : `Bạn đã chuyển tab ${r.violations}/${r.max} lần — bài thi bị tự động thu!`);
+            void doSubmit(true);
           } else {
             setWarn(`Cảnh báo chống gian lận: phát hiện chuyển tab (${r.violations}/${r.max}). Vượt giới hạn sẽ tự động thu bài!`);
           }
@@ -83,7 +87,8 @@ export default function ExamRoomPage() {
       setMaxV(r.room?.max_violations || 3);
       setTimeLeft((r.room?.time_limit || 30) * 60);
       setDone(r.submitted ? { score: 0, total: (r.questions || []).length } : null);
-      credRef.current = { code: code.trim().toUpperCase(), participant: name.trim() };
+      setDetail(r.detail || []);
+      credRef.current = { code: code.trim().toUpperCase(), participant: name.trim(), ticket: r.ticket || '' };
       localStorage.setItem('eq_exam_session', JSON.stringify(credRef.current));
       if (r.submitted) {
         const lb = await getLeaderboard(r.room.id).catch(() => null);
@@ -103,23 +108,23 @@ export default function ExamRoomPage() {
     setAnswers((a) => ({ ...a, [qid]: val }));
     // luu lien tuc: bam cau nao luu ngay cau do
     try {
-      await saveRoomAnswer(credRef.current.code, credRef.current.participant, qid, val);
-    } catch { /* se thu lai o cau tiep theo */ }
+      await saveRoomAnswer(credRef.current.code, credRef.current.participant, qid, val, credRef.current.ticket);
+    } catch (err) {
+      // het gio giua chung -> server da tu thu, keo ket qua ve
+      if (err instanceof Error && err.message.includes('Hết giờ')) {
+        void doSubmit(true);
+      }
+    }
   };
 
-  const doSubmit = async (auto = false, alreadyServer = false) => {
+  const doSubmit = async (auto = false) => {
     if (doneRef.current) return;
     doneRef.current = true;
     try {
-      let r: any = null;
-      if (!alreadyServer) {
-        r = await submitRoom(credRef.current.code, credRef.current.participant);
-      } else {
-        const lb = await getLeaderboard(room.id).catch(() => null);
-        const me = lb?.ranking?.find((x: any) => x.participant === credRef.current.participant);
-        r = me ? { score: me.score, total: me.total } : { score: 0, total: questions.length };
-      }
+      // submit luy thua (idempotent): bai da nop van tra lai detail day du
+      const r = await submitRoom(credRef.current.code, credRef.current.participant, credRef.current.ticket);
       setDone({ score: r.score ?? 0, total: r.total ?? questions.length });
+      setDetail(r.detail || []);
       const lb = await getLeaderboard(room.id).catch(() => null);
       if (lb) setRanking(lb.ranking || []);
       if (auto) setWarn((w) => w || 'Đã tự động thu bài.');
@@ -165,23 +170,19 @@ export default function ExamRoomPage() {
           <h1 className="font-bold text-xl">Đã nộp bài: {done.score}/{done.total}</h1>
           <p className="text-xs text-slate-300 mt-1">Phòng {room.name} · Mã {room.code} · Thí sinh {credRef.current.participant}</p>
         </div>
-        {questions.length > 0 && (
+        {detail.length > 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
             <h2 className="font-bold text-sm text-slate-800 mb-2">Xem lại bài làm</h2>
             <div className="flex flex-col gap-2 max-h-96 overflow-auto">
-              {questions.map((q: any, i: number) => {
-                const u = (answers as any)[String(q.id)];
-                const ok = Number(u) === Number(q.answer);
-                return (
-                  <div key={String(q.id)} className={`text-xs rounded-xl border px-3 py-2 ${ok ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
-                    <b>Câu {i + 1}:</b> {String(q.question || q.text || '').slice(0, 140)}
-                    <div className="mt-1 text-slate-500">
-                      Bạn chọn: <b>{u === undefined || u === null ? 'bỏ trống' : 'ABCDE'[Number(u)] ?? u}</b> ·
-                      Đáp án: <b className="text-green-600">{'ABCDE'[Number(q.answer)]}</b>
-                    </div>
+              {detail.map((d: any, i: number) => (
+                <div key={String(d.id)} className={`text-xs rounded-xl border px-3 py-2 ${d.isCorrect ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+                  <b>Câu {i + 1}:</b> {String(d.question || '').slice(0, 140)}
+                  <div className="mt-1 text-slate-500">
+                    Bạn chọn: <b>{d.userAnswer === undefined || d.userAnswer === null ? 'bỏ trống' : 'ABCDE'[Number(d.userAnswer)] ?? String(d.userAnswer)}</b> ·
+                    Đáp án: <b className="text-green-600">{'ABCDE'[Number(d.correctAnswer)]}</b>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         )}

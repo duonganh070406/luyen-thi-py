@@ -1,19 +1,42 @@
 # EduQuest
 
-Không gian ôn tập cá nhân — hệ thống hóa kiến thức qua trắc nghiệm và tự luận, tích hợp chấm điểm AI.
+Không gian ôn tập cá nhân + phòng thi online — hệ thống hóa kiến thức qua trắc nghiệm,
+import đề Excel/CSV, luyện theo chủ đề/độ khó, thi có giám sát chống gian lận.
 
 ---
 
 ## Tính năng
 
-- **Ngân hàng đề thi dạng Markdown** — câu hỏi được lưu trong file `.md`, dễ chỉnh sửa bằng bất kỳ text editor nào.
-- **Bốn loại câu hỏi** — một đáp án (`single`), nhiều đáp án (`multiple`), tự luận (`essay`), điền đáp án ngắn (`short_answer`).
-- **Làm đề cụ thể** — chọn file `.md` từ ngân hàng, xem trước danh sách câu hỏi, bắt đầu làm.
-- **Ôn tập tổng hợp** — backend chọn ngẫu nhiên câu hỏi từ toàn bộ đề trong môn, cấu hình số lượng theo từng loại.
-- **Chấm tự luận bằng AI** — tích hợp Gemini API để nhận xét và chấm điểm câu trả lời tự luận (có thể bật/tắt trong Cấu hình).
-- **Lịch sử & thống kê** — lưu toàn bộ lịch sử làm bài, thống kê câu hay sai nhất và sai gần đây.
-- **Cấu hình linh hoạt** — cho phép chọn kiểu copy (đầy đủ hoặc rút gọn) và bật/tắt chấm bài bằng AI.
-- **Không cần đăng nhập** — ứng dụng dành riêng cho một người dùng duy nhất, truy cập trực tiếp.
+### Luyện thi (không cần đăng nhập)
+
+- **Chọn chủ đề hỗn hợp, độ khó, số lượng câu** — đề trộn thông minh theo tỉ lệ
+  (Dễ: 50% Dễ · 30% TB · 20% Khó; TB: 30-40-30; Khó: 20-30-50), trộn câu hỏi + đảo đáp án.
+- **Biểu đồ năng lực** — chủ đề/độ khó nào sai nhiều → ôn lại; **câu sai gần đây**.
+- **Báo lỗi câu hỏi** — người luyện báo sai, quản trị viên duyệt.
+- **ML gợi ý độ khó** — dựa trên tỉ lệ sai lịch sử (kiến trúc mở, thay được model thật).
+- Giữ nguyên luồng cũ: ngân hàng đề Markdown, 4–5 loại câu hỏi, chấm tự luận bằng AI,
+  lịch sử & thống kê, flashcard, ghi chú.
+
+### Phòng thi online (thí sinh chỉ nhập tên + mã phòng)
+
+- **Tự động lưu từng câu** ngay khi bấm; **tự động thu bài** khi hết giờ
+  (server chốt theo deadline, không tin đồng hồ client).
+- **Chống gian lận**: phát hiện chuyển tab, quá giới hạn tự thu; đáp án đúng
+  **không bao giờ gửi cho client** trước khi nộp; mỗi phiên thi có ticket riêng.
+- Quản trị viên: **tạo phòng**, **giám sát trực tiếp** (poll 3s), **đóng + thu bài**,
+  **sửa bảng xếp hạng**, **xuất báo cáo CSV**.
+
+### Quản trị viên (đăng nhập `admin` / `admin123`)
+
+- **Import Excel/CSV** đúng mẫu: `Câu hỏi | A | B | C | D | E | Đáp án | Độ khó | Chủ đề | Giải thích`
+  (file mẫu: `backend/scripts/question_template.csv`).
+- Quản lý ngân hàng đề (thêm/sửa/xóa, sửa độ khó inline), duyệt báo lỗi, chạy ML gợi ý độ khó.
+- Mật khẩu có nút con mắt xem/ẩn. Đăng xuất thu hồi token phía server.
+
+### Trang chung
+
+Trang chủ · Giới thiệu · Luyện thi · Phòng thi · Liên hệ · Đăng nhập · Quản trị.
+Luồng nghiệp vụ (Mermaid): xem `docs/FLOWS.md`.
 
 ---
 
@@ -22,10 +45,11 @@ Không gian ôn tập cá nhân — hệ thống hóa kiến thức qua trắc n
 | Thành phần | Stack |
 | :--- | :--- |
 | **Frontend** | React 19 + Vite, TypeScript, TailwindCSS v4, Framer Motion, KaTeX |
-| **Backend** | FastAPI (Python), Pydantic, Uvicorn |
+| **Backend** | FastAPI (Python), Pydantic, Uvicorn, openpyxl (đọc Excel) |
 | **AI** | Google Gemini API (`@google/genai`) |
-| **Lưu trữ** | Flat file — Markdown (`.md`) + JSON (`history.json`) |
+| **Lưu trữ** | Flat file — Markdown (`.md`) + JSON (`questions.json`, `history.json`, `rooms.json`, ...) |
 | **Container** | Docker + Docker Compose |
+| **Kiểm thử** | Playwright (E2E trình duyệt thật, script ngoài repo) |
 
 ---
 
@@ -36,23 +60,32 @@ eduquest/
 ├── backend/
 │   ├── main.py              # FastAPI app — tất cả API endpoints
 │   ├── src/
-│   │   └── markdown_parser.py   # Parser chuyển .md → JSON câu hỏi
+│   │   ├── markdown_parser.py   # Parser chuyển .md → JSON câu hỏi
+│   │   ├── auth.py              # Đăng nhập admin/user, token Bearer
+│   │   ├── bank.py              # Ngân hàng đề + import Excel/CSV + ML độ khó
+│   │   ├── examrooms.py         # Phòng thi: ticket, deadline, chấm, BXH
+│   │   └── routes/
+│   │       ├── auth.py          # /api/auth/*
+│   │       ├── bank.py          # /api/subjects/*/bank|import|practice-quiz|competency|reports|ml-difficulty
+│   │       └── rooms.py         # /api/rooms/* (tạo/join/answer/violation/submit/monitor/leaderboard/export)
 │   └── Dockerfile
 ├── data/
 │   └── [Tên môn]/
 │       ├── markdown/
-│       │   └── [TênĐề].md   ← Nguồn câu hỏi
+│       │   └── [TênĐề].md   ← Nguồn câu hỏi (legacy, vẫn dùng được)
+│       ├── questions.json   ← Ngân hàng đề từ import Excel/CSV
 │       └── history.json     ← Lịch sử làm bài
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx              # UI chính
+│   │   ├── App.tsx              # Router + SiteNav chung
+│   │   ├── pages/               # Home/About/Practice/ExamRoom/Contact/Login/Admin
+│   │   ├── components/          # PasswordInput, CompetencyChart, QuizView, ...
 │   │   ├── mapBackend.ts        # Mapper API ↔ Frontend types
-│   │   ├── components/
-│   │   │   └── MarkdownRenderer.tsx  # Render LaTeX + Markdown
 │   │   └── services/
-│   │       ├── api.ts           # Gọi backend REST API
-│   │       └── geminiService.ts # Gọi Gemini API chấm tự luận
+│   │       └── api.ts           # Gọi backend REST API
 │   └── Dockerfile
+├── docs/
+│   └── FLOWS.md             # Luồng nghiệp vụ (Mermaid)
 ├── .env                     # Cấu hình port và API key
 ├── docker-compose.yml
 └── AGENTS.md                # Tài liệu kiến trúc cho AI agent
@@ -84,10 +117,10 @@ GEMINI_API_KEY="your_api_key_here"
 **Backend:**
 ```bash
 cd backend
-pip install fastapi uvicorn python-multipart
+pip install -r requirements.txt   # fastapi, uvicorn, python-multipart, openpyxl, ...
 python main.py
-# → http://localhost:1025
-# → Swagger UI: http://localhost:1025/swagger
+# → http://localhost:8000 (đổi bằng BACKEND_PORT)
+# → Swagger UI: http://localhost:8000/swagger
 ```
 
 **Frontend:**
@@ -126,6 +159,18 @@ Toàn bộ API được document tại **`http://localhost:1025/swagger`** (Swag
 | `POST` | `/api/subjects/{subject}/history` | Lưu một lần làm bài mới |
 | `GET` | `/api/subjects/{subject}/stats` | Thống kê câu hay sai (`mostMissed`, `recentErrors`) |
 | `GET` | `/api/subjects/{subject}/comprehensive-quiz` | Tạo đề ngẫu nhiên theo số lượng từng loại |
+| `POST` | `/api/auth/register` · `/api/auth/login` · `/api/auth/logout` · `GET /api/auth/me` | Đăng ký/đăng nhập (token Bearer), thu hồi token, xem phiên hiện tại |
+| `GET` | `/api/subjects/{subject}/bank` (+ `/topics`) | Ngân hàng đề + thống kê số lượng |
+| `POST` | `/api/subjects/{subject}/bank` · `PUT/DELETE .../bank/{id}` | Thêm/sửa/xóa câu hỏi (admin) |
+| `POST` | `/api/subjects/{subject}/import` (multipart `.xlsx`/`.csv`) | Import đề theo mẫu image.png (admin) |
+| `POST` | `/api/subjects/{subject}/practice-quiz` | Đề luyện theo chủ đề + độ khó (trộn tỉ lệ) + đảo đáp án |
+| `GET` | `/api/subjects/{subject}/competency` | Năng lực theo chủ đề/độ khó (vẽ biểu đồ) |
+| `GET` | `/api/subjects/{subject}/ml-difficulty` | ML gợi ý độ khó câu hỏi |
+| `POST` | `/api/subjects/{subject}/reports` · `GET/PUT` (admin) | Báo lỗi câu hỏi + duyệt |
+| `POST` | `/api/rooms` · `GET /api/rooms` · `PUT /api/rooms/{id}` · `POST .../close` | Tạo/liệt kê/sửa/đóng phòng thi (admin) |
+| `POST` | `/api/rooms/join` | Vào thi bằng tên + mã phòng → nhận đề (đã cắt đáp án) + ticket |
+| `POST` | `/api/rooms/answer` · `/violation` · `/submit` | Lưu từng câu / báo chuyển tab / nộp bài (kèm ticket) |
+| `GET` | `/api/rooms/{id}/monitor` · `/leaderboard` · `PUT` (sửa điểm) · `/export` (CSV) | Giám sát, BXH, báo cáo (admin) |
 
 ---
 

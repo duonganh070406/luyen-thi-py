@@ -6,13 +6,20 @@
 Room: id, code, name, subject, topics, difficulty, count, time_limit,
       shuffle_questions, shuffle_options, status(open|closed),
       created_by, created_at, max_violations
-Session: room_id, participant, questions(list quiz item da tron rieng),
-      answers, violations, joined_at, updated_at, submitted, submitted_at,
-      score, total
+Session: room_id, participant, ticket, questions(list quiz item day du,
+      chi luu server), answers, violations, joined_at, deadline,
+      updated_at, submitted, submitted_at, score, total
+
+Chong gian lan:
+- Dap an dung KHONG bao gio gui cho client truoc khi nop bai.
+- Moi phien lam bai co ticket rieng; cac API answer/violation/submit
+  deu phai kem ticket khop thi moi duoc chap nhan.
+- Server tu dong thu bai khi qua deadline (ke ca client khong gui gi).
 """
 from __future__ import annotations
 
 import random
+import secrets
 import string
 import time
 from typing import Any
@@ -128,28 +135,101 @@ def build_questions_for_participant(room: dict[str, Any]) -> list[dict[str, Any]
     return picked
 
 
+def public_question(q: dict[str, Any]) -> dict[str, Any]:
+    """Ban cau hoi gui cho thi sinh: cat bo moi truong dap an."""
+    return {
+        "id": q.get("id"),
+        "type": q.get("type", "single"),
+        "name": q.get("name"),
+        "question": q.get("question", ""),
+        "text": q.get("text", q.get("question", "")),
+        "options": q.get("options", []),
+        "explanation": "",
+        "difficulty": q.get("difficulty", ""),
+        "topic": q.get("topic", ""),
+    }
+
+
+def session_detail(sess: dict[str, Any]) -> list[dict[str, Any]]:
+    """Chi tiet cham tung cau (chi tra SAU KHI nop bai)."""
+    answers = sess.get("answers") or {}
+    out = []
+    for q in sess.get("questions") or []:
+        qid = str(q.get("id"))
+        ua = answers.get(qid)
+        try:
+            ok = ua is not None and int(ua) == int(q.get("answer", -999))
+        except Exception:
+            ok = False
+        out.append(
+            {
+                "id": q.get("id"),
+                "question": q.get("question", ""),
+                "options": q.get("options", []),
+                "userAnswer": ua,
+                "correctAnswer": q.get("answer", 0),
+                "isCorrect": bool(ok),
+            }
+        )
+    return out
+
+
+def finalize_session(sess: dict[str, Any]) -> None:
+    """Thu bai + chot diem (dung chung cho nop tay, het gio, vi pham, dong phong)."""
+    score, total = grade_session(sess.get("questions") or [], sess.get("answers") or {})
+    sess["score"] = score
+    sess["total"] = total
+    sess["submitted"] = True
+    sess["submitted_at"] = int(time.time())
+    sess["updated_at"] = int(time.time())
+
+
+def is_expired(room: dict[str, Any], sess: dict[str, Any]) -> bool:
+    """Het gio lam bai chua (tinh tu deadline server, khong tin dong ho client)."""
+    if sess.get("submitted"):
+        return False
+    deadline = sess.get("deadline")
+    if not deadline:
+        # session cu (truoc khi co deadline): suy ra tu joined_at + time_limit
+        try:
+            deadline = int(sess.get("joined_at", 0)) + int(room.get("time_limit") or 30) * 60
+        except Exception:
+            return False
+    return int(time.time()) > int(deadline)
+
+
 def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, Any]]:
     room = get_room_by_code(code)
     if not room:
         raise ValueError("Mã phòng thi không tồn tại.")
-    if room.get("status") != "open":
-        raise ValueError("Phòng thi đã đóng.")
     name = (participant or "").strip()
     if not name:
         raise ValueError("Vui lòng nhập tên để vào thi.")
     sessions = load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == name:
+            # Vao lai: session da nop van xem duoc ket qua ke ca phong da dong.
+            # Xoay ticket moi de chi 1 tab trinh duyet duoc phep lam bai.
+            s["ticket"] = secrets.token_urlsafe(24)
+            s["updated_at"] = int(time.time())
+            if not s.get("submitted") and (room.get("status") != "open" or is_expired(room, s)):
+                finalize_session(s)
+            save_sessions(sessions)
             return room, s
+    if room.get("status") != "open":
+        raise ValueError("Phòng thi đã đóng.")
     questions = build_questions_for_participant(room)
+    now = int(time.time())
     sess = {
         "room_id": room["id"],
         "participant": name,
+        "ticket": secrets.token_urlsafe(24),
         "questions": questions,
         "answers": {},
         "violations": 0,
-        "joined_at": int(time.time()),
-        "updated_at": int(time.time()),
+        "joined_at": now,
+        "deadline": now + max(1, int(room.get("time_limit") or 30)) * 60,
+        "updated_at": now,
         "submitted": False,
         "submitted_at": None,
         "score": 0,
@@ -158,6 +238,15 @@ def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, An
     sessions.append(sess)
     save_sessions(sessions)
     return room, sess
+
+
+def check_ticket(sess: dict[str, Any], ticket: str) -> None:
+    """Xac thuc phien lam bai. Session cu (chua co ticket) duoc cap phat lan dau."""
+    if not sess.get("ticket"):
+        sess["ticket"] = (ticket or "").strip() or secrets.token_urlsafe(24)
+        return
+    if (ticket or "").strip() != sess["ticket"]:
+        raise ValueError("Phiên thi không hợp lệ (sai ticket). Hãy vào lại phòng thi.")
 
 
 def leaderboard(room_id: str) -> list[dict[str, Any]]:

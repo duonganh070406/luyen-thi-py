@@ -89,12 +89,7 @@ def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require
     sessions = store.load_sessions()
     for s in sessions:
         if s.get("room_id") == room_id and not s.get("submitted"):
-            score, total = store.grade_session(s.get("questions") or [], s.get("answers") or {})
-            s["score"] = score
-            s["total"] = total
-            s["submitted"] = True
-            s["submitted_at"] = int(time.time())
-            s["updated_at"] = int(time.time())
+            store.finalize_session(s)
     store.save_sessions(sessions)
     return {"ok": True}
 
@@ -106,7 +101,11 @@ class JoinBody(BaseModel):
 
 @router.post("/api/rooms/join")
 def join(body: JoinBody):
-    """Thi sinh vao thi: chi can nhap ten + ma phong (khong can mat khau)."""
+    """Thi sinh vao thi: chi can nhap ten + ma phong (khong can mat khau).
+
+    Tra ve ticket phien thi + de da CAT DAP AN. Xem lai dap an dung
+    chi co trong `detail` va chi khi bai da nop.
+    """
     try:
         room, sess = store.join_room(body.code, body.participant)
     except ValueError as e:
@@ -114,18 +113,48 @@ def join(body: JoinBody):
     return {
         "ok": True,
         "room": {k: room[k] for k in ("id", "code", "name", "subject", "time_limit", "max_violations", "status")},
-        "questions": sess.get("questions") or [],
+        "ticket": sess.get("ticket", ""),
+        "deadline": sess.get("deadline", 0),
+        "questions": [store.public_question(q) for q in sess.get("questions") or []],
         "answers": sess.get("answers") or {},
         "violations": sess.get("violations", 0),
         "submitted": bool(sess.get("submitted")),
+        "detail": store.session_detail(sess) if sess.get("submitted") else [],
     }
 
 
 class AnswerBody(BaseModel):
     code: str = ""
     participant: str = ""
+    ticket: str = ""
     question_id: str = ""
     answer: Any = None
+
+
+def _find_session(room: dict[str, Any], participant: str) -> dict[str, Any] | None:
+    sessions = store.load_sessions()
+    for s in sessions:
+        if s.get("room_id") == room["id"] and s.get("participant") == (participant or "").strip():
+            return s
+    return None
+
+
+def _save_session(updated: dict[str, Any]) -> None:
+    sessions = store.load_sessions()
+    for i, s in enumerate(sessions):
+        if s.get("room_id") == updated.get("room_id") and s.get("participant") == updated.get("participant"):
+            sessions[i] = updated
+            break
+    else:
+        sessions.append(updated)
+    store.save_sessions(sessions)
+
+
+def _check_ticket_or_403(sess: dict[str, Any], ticket: str) -> None:
+    try:
+        store.check_ticket(sess, ticket)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.post("/api/rooms/answer")
@@ -134,23 +163,28 @@ def save_answer(body: AnswerBody):
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    sessions = store.load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
-            if s.get("submitted"):
-                raise HTTPException(status_code=400, detail="Bài thi đã nộp.")
-            answers = dict(s.get("answers") or {})
-            answers[str(body.question_id)] = body.answer
-            s["answers"] = answers
-            s["updated_at"] = int(time.time())
-            store.save_sessions(sessions)
-            return {"ok": True, "answered": len(answers)}
-    raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    s = _find_session(room, body.participant)
+    if not s:
+        raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    _check_ticket_or_403(s, body.ticket)
+    if store.is_expired(room, s):
+        store.finalize_session(s)
+        _save_session(s)
+        raise HTTPException(status_code=400, detail="Hết giờ làm bài. Bài thi đã tự động thu.")
+    if s.get("submitted"):
+        raise HTTPException(status_code=400, detail="Bài thi đã nộp.")
+    answers = dict(s.get("answers") or {})
+    answers[str(body.question_id)] = body.answer
+    s["answers"] = answers
+    s["updated_at"] = int(time.time())
+    _save_session(s)
+    return {"ok": True, "answered": len(answers)}
 
 
 class ViolationBody(BaseModel):
     code: str = ""
     participant: str = ""
+    ticket: str = ""
 
 
 @router.post("/api/rooms/violation")
@@ -159,49 +193,50 @@ def report_violation(body: ViolationBody):
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    sessions = store.load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
-            if s.get("submitted"):
-                return {"ok": True, "submitted": True, "violations": s.get("violations", 0)}
-            s["violations"] = int(s.get("violations", 0)) + 1
-            s["updated_at"] = int(time.time())
-            maxv = int(room.get("max_violations") or 3)
-            auto = s["violations"] >= maxv
-            if auto:
-                score, total = store.grade_session(s.get("questions") or [], s.get("answers") or {})
-                s["score"] = score
-                s["total"] = total
-                s["submitted"] = True
-                s["submitted_at"] = int(time.time())
-            store.save_sessions(sessions)
-            return {"ok": True, "violations": s["violations"], "submitted": bool(s.get("submitted")), "max": maxv}
-    raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    s = _find_session(room, body.participant)
+    if not s:
+        raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    _check_ticket_or_403(s, body.ticket)
+    if s.get("submitted"):
+        return {"ok": True, "submitted": True, "violations": s.get("violations", 0)}
+    if store.is_expired(room, s):
+        store.finalize_session(s)
+        _save_session(s)
+        return {"ok": True, "violations": s.get("violations", 0), "submitted": True, "max": int(room.get("max_violations") or 3), "expired": True}
+    s["violations"] = int(s.get("violations", 0)) + 1
+    s["updated_at"] = int(time.time())
+    maxv = int(room.get("max_violations") or 3)
+    if s["violations"] >= maxv:
+        store.finalize_session(s)
+    _save_session(s)
+    return {"ok": True, "violations": s["violations"], "submitted": bool(s.get("submitted")), "max": maxv}
 
 
 class SubmitBody(BaseModel):
     code: str = ""
     participant: str = ""
+    ticket: str = ""
 
 
 @router.post("/api/rooms/submit")
 def submit(body: SubmitBody):
-    """Tu dong thu bai khi het gio / thi sinh nop / admin dong phong."""
+    """Nop bai (tu nguyen/het gio). Bai da nop thi tra lai ket qua + chi tiet (idempotent)."""
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    sessions = store.load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
-            score, total = store.grade_session(s.get("questions") or [], s.get("answers") or [])
-            s["score"] = score
-            s["total"] = total
-            s["submitted"] = True
-            s["submitted_at"] = int(time.time())
-            s["updated_at"] = int(time.time())
-            store.save_sessions(sessions)
-            return {"ok": True, "score": score, "total": total}
-    raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    s = _find_session(room, body.participant)
+    if not s:
+        raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    _check_ticket_or_403(s, body.ticket)
+    if not s.get("submitted"):
+        store.finalize_session(s)
+        _save_session(s)
+    return {
+        "ok": True,
+        "score": s.get("score", 0),
+        "total": s.get("total", len(s.get("questions") or [])),
+        "detail": store.session_detail(s),
+    }
 
 
 @router.get("/api/rooms/{room_id}/monitor")
