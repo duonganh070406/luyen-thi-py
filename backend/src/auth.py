@@ -103,13 +103,13 @@ def create_user(username: str, password: str, role: str = "user") -> dict[str, A
     _ensure_seed_admin()
     name = (username or "").strip()
     if not name or not password or len(password) < 3:
-        raise ValueError("Ten dang nhap/mat khau khong hop le (mat khau >= 3 ky tu).")
+        raise ValueError("Tên đăng nhập/mật khẩu không hợp lệ (mật khẩu >= 3 ký tự).")
     if role not in ("admin", "user"):
         role = "user"
     users = _read_json(_users_path(), [])
     for u in users:
         if isinstance(u, dict) and u.get("username") == name:
-            raise ValueError("Ten dang nhap da ton tai.")
+            raise ValueError("Tên đăng nhập đã tồn tại.")
     users.append(
         {
             "username": name,
@@ -161,14 +161,14 @@ def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AuthUser:
     if not creds or not creds.credentials:
-        raise HTTPException(status_code=401, detail="Chua dang nhap.")
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập.")
     info = lookup_token(creds.credentials)
     if not info:
-        raise HTTPException(status_code=401, detail="Phien dang nhap het han.")
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập hết hạn.")
     return AuthUser(username=info.get("username", ""), role=info.get("role", "user"))
 
 
 def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
     if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Can quyen quan tri vien.")
+        raise HTTPException(status_code=403, detail="Cần quyền quản trị viên.")
     return user

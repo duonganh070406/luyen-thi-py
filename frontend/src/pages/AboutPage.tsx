@@ -4,24 +4,24 @@ export default function AboutPage() {
   const navigate = useNavigate();
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-bold text-slate-900 font-serif italic mb-4">Gioi thieu</h1>
+      <h1 className="text-2xl font-bold text-slate-900 font-serif italic mb-4">Giới thiệu</h1>
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 leading-relaxed flex flex-col gap-3">
         <p>
-          <b className="text-slate-800">EduQuest</b> la he thong luyen thi trac nghiem chay local (khong can may chu
-          phuc tap), gom 2 che do ro rang:
+          <b className="text-slate-800">EduQuest</b> là hệ thống luyện thi trắc nghiệm chạy local (không cần máy chủ
+          phức tạp), gồm 2 chế độ rõ ràng:
         </p>
         <ul className="list-disc pl-5 flex flex-col gap-1.5">
-          <li><b className="text-slate-800">Luyen thi:</b> khong can dang nhap. Nguoi dung chon mon, chu de (co the hon hop nhieu chu de), do kho, so luong cau. He thong tron de theo ty le do kho, dao thu tu dap an.</li>
-          <li><b className="text-slate-800">Thi that (phong thi online):</b> thi sinh chi can nhap <b>ten + ma phong</b>. Bai lam duoc tu dong luu tung cau, tu dong thu bai khi het gio hoac vi pham chuyen tab qua gioi han.</li>
-          <li><b className="text-slate-800">Quan tri vien:</b> dang nhap bang tai khoan, import de Excel/CSV, tao va giam sat phong thi truc tiep, dong bai thi, sua bang xep hang, xuat bao cao CSV.</li>
+          <li><b className="text-slate-800">Luyện thi:</b> không cần đăng nhập. Người dùng chọn môn, chủ đề (có thể hỗn hợp nhiều chủ đề), độ khó, số lượng câu. Hệ thống trộn đề theo tỉ lệ độ khó, đảo thứ tự đáp án.</li>
+          <li><b className="text-slate-800">Thi thật (phòng thi online):</b> thí sinh chỉ cần nhập <b>tên + mã phòng</b>. Bài làm được tự động lưu từng câu, tự động thu bài khi hết giờ hoặc vi phạm chuyển tab quá giới hạn.</li>
+          <li><b className="text-slate-800">Quản trị viên:</b> đăng nhập bằng tài khoản, import đề Excel/CSV, tạo và giám sát phòng thi trực tiếp, đóng bài thi, sửa bảng xếp hạng, xuất báo cáo CSV.</li>
         </ul>
         <p>
-          Moi cau hoi trong ngan hang de gom: <b className="text-slate-800">cau hoi, phuong an A-E, dap an, do kho (De / Trung binh / Kho), chu de, giai thich</b>.
-          Khi chon 1 muc do kho, he thong van pha tron theo ty le de dam bao do kho dong deu giua cac luot (vi du chon De: 50% De – 30% Trung binh – 20% Kho).
+          Mỗi câu hỏi trong ngân hàng đề gồm: <b className="text-slate-800">câu hỏi, phương án A-E, đáp án, độ khó (Dễ / Trung bình / Khó), chủ đề, giải thích</b>.
+          Khi chọn 1 mức độ khó, hệ thống vẫn pha trộn theo tỉ lệ để đảm bảo độ khó đồng đều giữa các lượt (ví dụ chọn Dễ: 50% Dễ – 30% Trung bình – 20% Khó).
         </p>
         <p>
-          Tien ich kem theo: bao loi cau hoi sai, bieu do nang luc theo chu de, cau sai gan day, goi y do kho tu dong
-          (rule-based tren ty le sai lich su — kien truc mo, co the thay bang model ML that sau nay).
+          Tiện ích kèm theo: báo lỗi câu hỏi sai, biểu đồ năng lực theo chủ đề, câu sai gần đây, gợi ý độ khó tự động
+          (rule-based trên tỉ lệ sai lịch sử — kiến trúc mở, có thể thay bằng model ML thật sau này).
         </p>
         <div>
           <button
@@ -29,7 +29,7 @@ export default function AboutPage() {
             onClick={() => navigate('/luyen-thi')}
             className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 cursor-pointer"
           >
-            Thu luyen thi ngay
+            Thử luyện thi ngay
           </button>
         </div>
       </div>

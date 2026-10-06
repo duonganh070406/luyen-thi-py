@@ -53,10 +53,10 @@ export default function ExamRoomPage() {
           const r = await reportViolation(credRef.current.code, credRef.current.participant);
           setViolations(r.violations ?? 0);
           if (r.submitted) {
-            setWarn(`Ban da chuyen tab ${r.violations}/${r.max} lan — bai thi bi tu dong thu!`);
+            setWarn(`Bạn đã chuyển tab ${r.violations}/${r.max} lần — bài thi bị tự động thu!`);
             doSubmit(true, true);
           } else {
-            setWarn(`Canh bao chong gian lan: phat hien chuyen tab (${r.violations}/${r.max}). Vuot gioi han se tu dong thu bai!`);
+            setWarn(`Cảnh báo chống gian lận: phát hiện chuyển tab (${r.violations}/${r.max}). Vượt giới hạn sẽ tự động thu bài!`);
           }
         } catch { /* ignore */ }
       }
@@ -122,7 +122,7 @@ export default function ExamRoomPage() {
       setDone({ score: r.score ?? 0, total: r.total ?? questions.length });
       const lb = await getLeaderboard(room.id).catch(() => null);
       if (lb) setRanking(lb.ranking || []);
-      if (auto) setWarn((w) => w || 'Da tu dong thu bai.');
+      if (auto) setWarn((w) => w || 'Đã tự động thu bài.');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       doneRef.current = false;
@@ -135,22 +135,22 @@ export default function ExamRoomPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-slate-900 mb-1">Vao phong thi</h1>
-          <p className="text-xs text-slate-500 mb-5">Khong can mat khau — chi can nhap <b>ten + ma phong</b> do quan tri vien cap.</p>
+          <h1 className="text-xl font-bold text-slate-900 mb-1">Vào phòng thi</h1>
+          <p className="text-xs text-slate-500 mb-5">Không cần mật khẩu — chỉ cần nhập <b>tên + mã phòng</b> do quản trị viên cấp.</p>
           <form onSubmit={doJoin} className="flex flex-col gap-3">
             <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Ho ten</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="vd: Nguyen Van A"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 uppercase-none" />
+              <span className="text-sm font-semibold text-slate-700">Họ tên</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="vd: Nguyễn Văn A"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400" />
             </label>
             <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Ma phong thi</span>
+              <span className="text-sm font-semibold text-slate-700">Mã phòng thi</span>
               <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="vd: X7K2PQ"
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 font-mono tracking-widest font-bold" />
             </label>
             {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>}
             <button type="submit" className="mt-1 w-full py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 flex items-center justify-center gap-2 cursor-pointer">
-              <LogIn size={16} /> Vao thi
+              <LogIn size={16} /> Vào thi
             </button>
           </form>
         </div>
@@ -162,22 +162,22 @@ export default function ExamRoomPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="rounded-2xl bg-slate-900 text-white p-6 mb-4 text-center">
-          <h1 className="font-bold text-xl">Da nop bai: {done.score}/{done.total}</h1>
-          <p className="text-xs text-slate-300 mt-1">Phong {room.name} · Ma {room.code} · Thi sinh {credRef.current.participant}</p>
+          <h1 className="font-bold text-xl">Đã nộp bài: {done.score}/{done.total}</h1>
+          <p className="text-xs text-slate-300 mt-1">Phòng {room.name} · Mã {room.code} · Thí sinh {credRef.current.participant}</p>
         </div>
         {questions.length > 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
-            <h2 className="font-bold text-sm text-slate-800 mb-2">Xem lai bai lam</h2>
+            <h2 className="font-bold text-sm text-slate-800 mb-2">Xem lại bài làm</h2>
             <div className="flex flex-col gap-2 max-h-96 overflow-auto">
               {questions.map((q: any, i: number) => {
                 const u = (answers as any)[String(q.id)];
                 const ok = Number(u) === Number(q.answer);
                 return (
                   <div key={String(q.id)} className={`text-xs rounded-xl border px-3 py-2 ${ok ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
-                    <b>Cau {i + 1}:</b> {String(q.question || q.text || '').slice(0, 140)}
+                    <b>Câu {i + 1}:</b> {String(q.question || q.text || '').slice(0, 140)}
                     <div className="mt-1 text-slate-500">
-                      Ban chon: <b>{u === undefined || u === null ? 'bo trong' : 'ABCDE'[Number(u)] ?? u}</b> ·
-                      Dap an: <b className="text-green-600">{'ABCDE'[Number(q.answer)]}</b>
+                      Bạn chọn: <b>{u === undefined || u === null ? 'bỏ trống' : 'ABCDE'[Number(u)] ?? u}</b> ·
+                      Đáp án: <b className="text-green-600">{'ABCDE'[Number(q.answer)]}</b>
                     </div>
                   </div>
                 );
@@ -186,10 +186,10 @@ export default function ExamRoomPage() {
           </div>
         )}
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="font-bold text-sm text-slate-800 mb-2">Bang xep hang phong thi</h2>
-          {ranking.length === 0 ? <p className="text-xs text-slate-400">Chua co du lieu.</p> : (
+          <h2 className="font-bold text-sm text-slate-800 mb-2">Bảng xếp hạng phòng thi</h2>
+          {ranking.length === 0 ? <p className="text-xs text-slate-400">Chưa có dữ liệu.</p> : (
             <table className="w-full text-xs">
-              <thead><tr className="text-slate-400 text-left"><th className="py-1">Hang</th><th>Thi sinh</th><th>Diem</th><th>Vi pham</th></tr></thead>
+              <thead><tr className="text-slate-400 text-left"><th className="py-1">Hạng</th><th>Thí sinh</th><th>Điểm</th><th>Vi phạm</th></tr></thead>
               <tbody>
                 {ranking.map((r: any, i: number) => (
                   <tr key={r.participant} className={`border-t border-slate-100 ${r.participant === credRef.current.participant ? 'bg-indigo-50 font-bold' : ''}`}>
@@ -200,7 +200,7 @@ export default function ExamRoomPage() {
               </tbody>
             </table>
           )}
-          <button type="button" onClick={() => navigate('/phong-thi')} className="mt-3 text-xs font-bold text-indigo-600 cursor-pointer">← Ve trang phong thi</button>
+          <button type="button" onClick={() => navigate('/phong-thi')} className="mt-3 text-xs font-bold text-indigo-600 cursor-pointer">← Về trang phòng thi</button>
         </div>
       </div>
     );
@@ -211,7 +211,7 @@ export default function ExamRoomPage() {
       <div className="sticky top-14 z-30 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3">
         <div className="flex-1">
           <div className="text-sm font-bold text-slate-800">{room.name} · {credRef.current.participant}</div>
-          <div className="text-[11px] text-slate-500">Da lam {Object.keys(answers).length}/{questions.length} · Vi pham tab {violations}/{maxV} · Tu luu tung cau</div>
+          <div className="text-[11px] text-slate-500">Đã làm {Object.keys(answers).length}/{questions.length} · Vi phạm tab {violations}/{maxV} · Tự lưu từng câu</div>
         </div>
         <div className={`font-mono font-bold px-3 py-1.5 rounded-xl text-sm ${timeLeft < 300 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-700'}`}>
           {fmt(timeLeft)}
@@ -221,7 +221,7 @@ export default function ExamRoomPage() {
       <div className="flex flex-col gap-4">
         {questions.map((q: any, i: number) => (
           <div key={String(q.id)} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="text-[11px] font-bold text-slate-500 mb-2">Cau {i + 1}{q.topic ? ` · ${q.topic}` : ''}</div>
+            <div className="text-[11px] font-bold text-slate-500 mb-2">Câu {i + 1}{q.topic ? ` · ${q.topic}` : ''}</div>
             <div className="text-sm text-slate-800 font-medium mb-3"><MarkdownRenderer content={String(q.question || q.text || '')} /></div>
             <div className="flex flex-col gap-2">
               {(q.options || []).map((opt: string, oi: number) => (
@@ -237,7 +237,7 @@ export default function ExamRoomPage() {
         ))}
       </div>
       <button type="button" onClick={() => doSubmit(false)} className="mt-5 w-full py-3.5 rounded-2xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 cursor-pointer">
-        <Send size={15} /> Nop bai
+        <Send size={15} /> Nộp bài
       </button>
     </div>
   );

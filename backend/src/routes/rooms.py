@@ -31,7 +31,7 @@ class RoomCreateBody(BaseModel):
 @router.post("/api/rooms", status_code=201)
 def create_room(body: RoomCreateBody, user: auth_store.AuthUser = Depends(auth_store.require_admin)):
     if not body.subject.strip():
-        raise HTTPException(status_code=400, detail="Can chon mon (subject) cho phong thi.")
+        raise HTTPException(status_code=400, detail="Cần chọn môn (subject) cho phòng thi.")
     room = store.create_room(body.model_dump(mode="json"), created_by=user.username)
     return {"ok": True, "room": room}
 
@@ -45,7 +45,7 @@ def list_rooms(user: auth_store.AuthUser = Depends(auth_store.require_admin)):
 def get_room(room_id: str, user: auth_store.AuthUser = Depends(auth_store.require_admin)):
     room = store.get_room(room_id)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     return {"room": room}
 
 
@@ -72,7 +72,7 @@ def update_room(room_id: str, body: RoomUpdateBody, _: auth_store.AuthUser = Dep
             if body.max_violations is not None:
                 r["max_violations"] = max(1, int(body.max_violations))
     if not found:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     store.save_rooms(rooms)
     return {"ok": True}
 
@@ -83,7 +83,7 @@ def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require
     rooms = store.load_rooms()
     room = next((r for r in rooms if r.get("id") == room_id), None)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     room["status"] = "closed"
     store.save_rooms(rooms)
     sessions = store.load_sessions()
@@ -133,19 +133,19 @@ def save_answer(body: AnswerBody):
     """Luu trang thai lien tuc: bam cau nao luu ngay cau do cho quan tri vien."""
     room = store.get_room_by_code(body.code)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     sessions = store.load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
             if s.get("submitted"):
-                raise HTTPException(status_code=400, detail="Bai thi da nop.")
+                raise HTTPException(status_code=400, detail="Bài thi đã nộp.")
             answers = dict(s.get("answers") or {})
             answers[str(body.question_id)] = body.answer
             s["answers"] = answers
             s["updated_at"] = int(time.time())
             store.save_sessions(sessions)
             return {"ok": True, "answered": len(answers)}
-    raise HTTPException(status_code=404, detail="Chua join phong.")
+    raise HTTPException(status_code=404, detail="Chưa join phòng.")
 
 
 class ViolationBody(BaseModel):
@@ -158,7 +158,7 @@ def report_violation(body: ViolationBody):
     """Chong gian lan: dem so lan chuyen tab. Qua gioi han -> tu dong thu bai."""
     room = store.get_room_by_code(body.code)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     sessions = store.load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
@@ -176,7 +176,7 @@ def report_violation(body: ViolationBody):
                 s["submitted_at"] = int(time.time())
             store.save_sessions(sessions)
             return {"ok": True, "violations": s["violations"], "submitted": bool(s.get("submitted")), "max": maxv}
-    raise HTTPException(status_code=404, detail="Chua join phong.")
+    raise HTTPException(status_code=404, detail="Chưa join phòng.")
 
 
 class SubmitBody(BaseModel):
@@ -189,7 +189,7 @@ def submit(body: SubmitBody):
     """Tu dong thu bai khi het gio / thi sinh nop / admin dong phong."""
     room = store.get_room_by_code(body.code)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     sessions = store.load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == (body.participant or "").strip():
@@ -201,7 +201,7 @@ def submit(body: SubmitBody):
             s["updated_at"] = int(time.time())
             store.save_sessions(sessions)
             return {"ok": True, "score": score, "total": total}
-    raise HTTPException(status_code=404, detail="Chua join phong.")
+    raise HTTPException(status_code=404, detail="Chưa join phòng.")
 
 
 @router.get("/api/rooms/{room_id}/monitor")
@@ -209,7 +209,7 @@ def monitor(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_ad
     """Dashboard giam sat nguoi lam trong luc thi."""
     room = store.get_room(room_id)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     sessions = [s for s in store.load_sessions() if s.get("room_id") == room_id]
     rows = []
     for s in sessions:
@@ -237,7 +237,7 @@ def monitor(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_ad
 def get_leaderboard(room_id: str):
     room = store.get_room(room_id)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     return {"room": {"id": room["id"], "code": room["code"], "name": room["name"]}, "ranking": store.leaderboard(room_id)}
 
 
@@ -261,7 +261,7 @@ def edit_leaderboard(room_id: str, body: ScoreEditBody, _: auth_store.AuthUser =
             s["manual_edit"] = True
             found = True
     if not found:
-        raise HTTPException(status_code=404, detail="Khong tim thay thi sinh.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy thí sinh.")
     store.save_sessions(sessions)
     return {"ok": True}
 
@@ -271,7 +271,7 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     """Xuat mau bao cao sau thi (CSV) cho quan tri vien."""
     room = store.get_room(room_id)
     if not room:
-        raise HTTPException(status_code=404, detail="Khong tim thay phong.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     ranking = store.leaderboard(room_id)
     buf = io.StringIO()
     w = csv.writer(buf)

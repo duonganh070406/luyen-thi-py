@@ -4,11 +4,11 @@ import { GraduationCap, LogOut, ShieldCheck, Menu, X } from 'lucide-react';
 import { currentUser, fetchMe, logout } from '../../services/api.ts';
 
 const LINKS = [
-  { to: '/', label: 'Trang chu', end: true },
-  { to: '/gioi-thieu', label: 'Gioi thieu' },
-  { to: '/luyen-thi', label: 'Luyen thi' },
-  { to: '/phong-thi', label: 'Phong thi' },
-  { to: '/lien-he', label: 'Lien he' },
+  { to: '/', label: 'Trang chủ', end: true },
+  { to: '/gioi-thieu', label: 'Giới thiệu' },
+  { to: '/luyen-thi', label: 'Luyện thi' },
+  { to: '/phong-thi', label: 'Phòng thi' },
+  { to: '/lien-he', label: 'Liên hệ' },
 ];
 
 /** Thanh dieu huong chung: Trang chu / Gioi thieu / Luyen thi / Phong thi / Lien he. */
@@ -77,7 +77,7 @@ export default function SiteNav() {
             onClick={() => navigate('/admin')}
             className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 cursor-pointer"
           >
-            <ShieldCheck size={15} /> Quan tri
+            <ShieldCheck size={15} /> Quản trị
           </button>
         )}
         {user ? (
@@ -88,7 +88,7 @@ export default function SiteNav() {
               type="button"
               onClick={doLogout}
               className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
-              title="Dang xuat"
+              title="Đăng xuất"
             >
               <LogOut size={16} />
             </button>
@@ -99,14 +99,14 @@ export default function SiteNav() {
             onClick={() => navigate('/dang-nhap')}
             className="hidden sm:block px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 cursor-pointer"
           >
-            Dang nhap
+            Đăng nhập
           </button>
         )}
         <button
           type="button"
           className="md:hidden p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
           onClick={() => setOpen((o) => !o)}
-          aria-label="Menu"
+          aria-label="Thực đơn"
         >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -128,16 +128,16 @@ export default function SiteNav() {
           ))}
           {user?.role === 'admin' && (
             <NavLink to="/admin" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold text-amber-700 bg-amber-50">
-              Quan tri vien
+              Quản trị viên
             </NavLink>
           )}
           {user ? (
             <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-red-600">
-              Dang xuat ({user.username})
+              Đăng xuất ({user.username})
             </button>
           ) : (
             <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold text-indigo-700 bg-indigo-50">
-              Dang nhap
+              Đăng nhập
             </NavLink>
           )}
         </nav>

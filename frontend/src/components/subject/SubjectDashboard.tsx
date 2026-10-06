@@ -390,8 +390,8 @@ export default function SubjectDashboard({
         className="flex-1 overflow-y-auto custom-scrollbar pb-32"
       >
         <div className="relative max-w-4xl mx-auto px-4 py-6 sm:p-8 md:p-10">
-          {/* Sticky Anchor Navigation Wrapper */}
-          <div className="absolute left-0 top-0 h-full hidden xl:block pointer-events-none">
+          {/* Sticky Anchor Navigation Wrapper (chi hien khi du cho trong: man hinh >= 2xl) */}
+          <div className="absolute left-0 top-0 h-full hidden 2xl:block pointer-events-none">
             <div className="sticky top-4 z-30 -ml-44 w-36 space-y-2 bg-white/85 backdrop-blur-md p-3.5 rounded-3xl border border-slate-100 shadow-lg pointer-events-auto">
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Mục lục nhanh</p>
               {SECTION_ITEMS.map((item) => {

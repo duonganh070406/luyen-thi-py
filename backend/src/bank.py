@@ -296,7 +296,7 @@ def parse_rows(rows: list[list[Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     items: list[dict[str, Any]] = []
     errors: list[str] = []
     if not rows or len(rows) < 2:
-        return items, ["File khong co du lieu (can it nhat 1 hang header + 1 hang cau hoi)."]
+        return items, ["File không có dữ liệu (cần ít nhất 1 hàng header + 1 hàng câu hỏi)."]
     header = [_norm_header(h) for h in rows[0]]
     idx: dict[str, int] = {}
     for i, h in enumerate(header):
@@ -312,7 +312,7 @@ def parse_rows(rows: list[list[Any]]) -> tuple[list[dict[str, Any]], list[str]]:
         return "" if v is None else str(v).strip()
 
     if "question" not in idx or "answer" not in idx:
-        return items, ["Thieu cot bat buoc: 'Cau hoi' va 'Dap an'. Header hien tai: " + " | ".join(str(h) for h in rows[0])]
+        return items, ["Thiếu cột bắt buộc: 'Câu hỏi' và 'Đáp án'. Header hiện tại: " + " | ".join(str(h) for h in rows[0])]
 
     for n, r in enumerate(rows[1:], start=2):
         q_text = cell(r, "question")
@@ -326,13 +326,13 @@ def parse_rows(rows: list[list[Any]]) -> tuple[list[dict[str, Any]], list[str]]:
                 opts.append(v)
                 letters_present.append(L)
         if len(opts) < 2:
-            errors.append(f"Dong {n}: can it nhat 2 phuong an A-D.")
+            errors.append(f"Dòng {n}: cần ít nhất 2 phương án A-D.")
             continue
         ans_raw = cell(r, "answer")
         letter = normalize_answer(ans_raw, len(opts))
         if letter not in letters_present:
             # neu dap an nam ngoai so phuong an co san -> bao loi nhe nhung van giu
-            errors.append(f"Dong {n}: dap an '{ans_raw}' khong khop so phuong an ({len(opts)}). Da chuan hoa ve '{letter}'.")
+            errors.append(f"Dòng {n}: đáp án '{ans_raw}' không khớp số phương án ({len(opts)}). Đã chuẩn hóa về '{letter}'.")
         items.append(
             {
                 "question": q_text,
@@ -369,7 +369,7 @@ def read_xlsx_bytes(data: bytes) -> list[list[Any]]:
     except ImportError as e:
         raise HTTPException(
             status_code=500,
-            detail="Chua cai openpyxl. Chay: pip install openpyxl",
+            detail="Chưa cài openpyxl. Chạy: pip install openpyxl",
         ) from e
     wb = load_workbook(filename=io.BytesIO(data), read_only=True, data_only=True)
     ws = wb.active

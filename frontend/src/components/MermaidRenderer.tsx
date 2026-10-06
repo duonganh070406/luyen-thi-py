@@ -26,6 +26,38 @@ interface MermaidRendererProps {
   chart: string;
 }
 
+/**
+ * Nut zoom dang span thay vi button: tranh HTML khong hop le (<button> long
+ * <button>) khi so do nam trong card co the mo rong (MostMissedItem...),
+ * dong thoi chan noi bot su kien click de khong vo tinh dong/mo accordion.
+ */
+function ZoomKey({ title, label, onZoom, className }: {
+  title: string;
+  label: string;
+  onZoom: () => void;
+  className?: string;
+}) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      title={title}
+      aria-label={title}
+      onClick={(e) => { e.stopPropagation(); onZoom(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          onZoom();
+        }
+      }}
+      className={`cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 ${className ?? ''}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function MermaidRenderer({ chart }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
@@ -94,28 +126,25 @@ export default function MermaidRenderer({ chart }: MermaidRendererProps) {
     <div className="flex flex-col items-center my-6 p-5 bg-slate-50/50 rounded-3xl border border-slate-100/80 shadow-sm w-full">
       {/* Zoom Control Panel */}
       <div className="flex items-center gap-2 mb-4 bg-white px-3 py-1.5 rounded-full border border-slate-200/60 shadow-sm self-end text-xs shrink-0 select-none">
-        <button
-          onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
-          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 font-bold text-slate-500 transition-colors"
+        <ZoomKey
           title="Thu nhỏ"
-        >
-          -
-        </button>
-        <span className="font-mono font-bold text-slate-500 min-w-[40px] text-center">{zoom}%</span>
-        <button
-          onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+          label="–"
+          onZoom={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
           className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 font-bold text-slate-500 transition-colors"
+        />
+        <span className="font-mono font-bold text-slate-500 min-w-[40px] text-center">{zoom}%</span>
+        <ZoomKey
           title="Phóng to"
-        >
-          +
-        </button>
-        <button
-          onClick={() => setZoom(DEFAULT_ZOOM)}
-          className="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-400 font-semibold transition-colors"
+          label="+"
+          onZoom={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 font-bold text-slate-500 transition-colors"
+        />
+        <ZoomKey
           title="Mặc định"
-        >
-          Reset
-        </button>
+          label="Reset"
+          onZoom={() => setZoom(DEFAULT_ZOOM)}
+          className="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-400 font-semibold transition-colors"
+        />
       </div>
 
       <style>{`

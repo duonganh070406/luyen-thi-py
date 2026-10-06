@@ -131,12 +131,12 @@ def build_questions_for_participant(room: dict[str, Any]) -> list[dict[str, Any]
 def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, Any]]:
     room = get_room_by_code(code)
     if not room:
-        raise ValueError("Ma phong thi khong ton tai.")
+        raise ValueError("Mã phòng thi không tồn tại.")
     if room.get("status") != "open":
-        raise ValueError("Phong thi da dong.")
+        raise ValueError("Phòng thi đã đóng.")
     name = (participant or "").strip()
     if not name:
-        raise ValueError("Vui long nhap ten de vao thi.")
+        raise ValueError("Vui lòng nhập tên để vào thi.")
     sessions = load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == name:

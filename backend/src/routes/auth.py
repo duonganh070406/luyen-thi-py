@@ -34,7 +34,7 @@ def register(body: RegisterBody):
 def login(body: LoginBody):
     u = auth_store.find_user(body.username)
     if not u or not auth_store.verify_password(body.password, u.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Sai ten dang nhap hoac mat khau.")
+        raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu.")
     token = auth_store.issue_token(u["username"], u.get("role", "user"))
     return {"ok": True, "token": token, "username": u["username"], "role": u.get("role", "user")}
 

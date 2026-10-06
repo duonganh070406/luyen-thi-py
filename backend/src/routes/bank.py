@@ -49,7 +49,7 @@ def add_question(
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ):
     if not body.question.strip() or len(body.options) < 2:
-        raise HTTPException(status_code=400, detail="Cau hoi can noi dung + it nhat 2 phuong an.")
+        raise HTTPException(status_code=400, detail="Câu hỏi cần nội dung + ít nhất 2 phương án.")
     res = bank_store.import_items(
         subject,
         [
@@ -101,7 +101,7 @@ def update_question(
                 q["explanation"] = body.explanation
             q["updated_at"] = int(time.time())
     if not found:
-        raise HTTPException(status_code=404, detail="Khong tim thay cau hoi.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
     bank_store.save_bank(subject, items)
     return {"ok": True}
 
@@ -115,7 +115,7 @@ def delete_question(
     items = bank_store.load_bank(subject)
     rest = [q for q in items if str(q.get("id")) != qid]
     if len(rest) == len(items):
-        raise HTTPException(status_code=404, detail="Khong tim thay cau hoi.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
     bank_store.save_bank(subject, rest)
     return {"ok": True, "total": len(rest)}
 
@@ -135,25 +135,25 @@ async def import_file(
     lower = name.lower()
     data = await file.read()
     if not data:
-        raise HTTPException(status_code=400, detail="File rong.")
+        raise HTTPException(status_code=400, detail="File rỗng.")
     try:
         if lower.endswith(".csv"):
             rows = bank_store.read_csv_bytes(data)
         elif lower.endswith((".xlsx", ".xlsm", ".xltx")):
             rows = bank_store.read_xlsx_bytes(data)
         elif lower.endswith(".xls"):
-            raise HTTPException(status_code=400, detail="File .xls cu khong duoc ho tro. Hay Save As .xlsx hoac .csv.")
+            raise HTTPException(status_code=400, detail="File .xls cũ không được hỗ trợ. Hãy Save As .xlsx hoặc .csv.")
         else:
             # thu doan csv truoc, neu that bai thi bao loi dinh dang
             try:
                 rows = bank_store.read_csv_bytes(data)
             except Exception:
-                raise HTTPException(status_code=400, detail="Dinh dang khong ho tro. Hay dung .xlsx hoac .csv.")
+                raise HTTPException(status_code=400, detail="Định dạng không hỗ trợ. Hãy dùng .xlsx hoặc .csv.")
         items, errors = bank_store.parse_rows(rows)
         if not items:
             raise HTTPException(
                 status_code=400,
-                detail="Khong doc duoc cau hoi nao. " + (" ".join(errors[:3])),
+                detail="Không đọc được câu hỏi nào. " + (" ".join(errors[:3])),
             )
         # tu tao subject dir neu chua co
         subject_dir = DATA_ROOT / subject.strip()
@@ -164,7 +164,7 @@ async def import_file(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Loi import: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi import: {e}")
 
 
 @router.get("/api/subjects/{subject}/import/template")
@@ -269,7 +269,7 @@ def create_report(subject: str, body: dict[str, Any]) -> dict[str, Any]:
     qid = str(body.get("question_id") or body.get("questionId") or "")
     msg = str(body.get("message") or "").strip()
     if not qid or not msg:
-        raise HTTPException(status_code=400, detail="Can question_id + message.")
+        raise HTTPException(status_code=400, detail="Cần question_id + message.")
     try:
         items = read_json_list(_reports_path(subject))
     except Exception:
@@ -319,7 +319,7 @@ def update_report(
             r["status"] = body.status
             found = True
     if not found:
-        raise HTTPException(status_code=404, detail="Khong tim thay bao loi.")
+        raise HTTPException(status_code=404, detail="Không tìm thấy báo lỗi.")
     try:
         write_json_atomic(_reports_path(subject), items)
     except OSError:

@@ -20,7 +20,7 @@ export default function PasswordInput({ value, onChange, placeholder, label }: P
           type={show ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder || 'Nhap mat khau'}
+          placeholder={placeholder || 'Nhập mật khẩu'}
           className="flex-1 min-w-0 bg-transparent outline-none text-sm"
           autoComplete="current-password"
         />
@@ -28,8 +28,8 @@ export default function PasswordInput({ value, onChange, placeholder, label }: P
           type="button"
           onClick={() => setShow((s) => !s)}
           className="text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-          aria-label={show ? 'An mat khau' : 'Hien mat khau'}
-          title={show ? 'An mat khau' : 'Hien mat khau'}
+          aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+          title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
         >
           {show ? <EyeOff size={17} /> : <Eye size={17} />}
         </button>

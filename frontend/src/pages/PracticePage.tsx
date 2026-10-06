@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Play, Flag, RotateCcw, CheckCircle2, XCircle } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer.tsx';
-import CompetencyChart from '../components/CompetencyChart.tsx';
+import CompetencyChart, { DIFF_LABEL } from '../components/CompetencyChart.tsx';
 import { questionFromApi } from '../mapBackend.ts';
 import type { Question } from '../types.ts';
 import {
@@ -10,10 +10,10 @@ import {
 } from '../services/api.ts';
 
 const DIFFS = [
-  { v: 'Hon hop', label: 'Hon hop (tat ca do kho)', hint: 'Lay deu cac muc do' },
-  { v: 'De', label: 'De', hint: 'Tron: 50% De · 30% TB · 20% Kho' },
-  { v: 'Trung binh', label: 'Trung binh', hint: 'Tron: 30% De · 40% TB · 30% Kho' },
-  { v: 'Kho', label: 'Kho', hint: 'Tron: 20% De · 30% TB · 50% Kho' },
+  { v: 'Hon hop', label: 'Hỗn hợp (tất cả độ khó)', hint: 'Lấy đều các mức độ' },
+  { v: 'De', label: 'Dễ', hint: 'Trộn: 50% Dễ · 30% TB · 20% Khó' },
+  { v: 'Trung binh', label: 'Trung bình', hint: 'Trộn: 30% Dễ · 40% TB · 30% Khó' },
+  { v: 'Kho', label: 'Khó', hint: 'Trộn: 20% Dễ · 30% TB · 50% Khó' },
 ];
 
 interface ResultRow { q: Question; user: number; ok: boolean; }
@@ -70,7 +70,7 @@ export default function PracticePage() {
       });
       const qs = raw.map((r) => questionFromApi(subject, r as Record<string, unknown>));
       if (qs.length === 0) {
-        setNotice('Khong tim thay cau hoi phu hop. Quan tri vien can import de truoc.');
+        setNotice('Không tìm thấy câu hỏi phù hợp. Quản trị viên cần import đề trước.');
         return;
       }
       setQuestions(qs);
@@ -96,7 +96,7 @@ export default function PracticePage() {
       const attemptId = `att_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       await appendHistory(subject, {
         attemptId,
-        examName: `Luyen: ${picked.length ? picked.join(',') : 'Hon hop'} - ${difficulty}`,
+        examName: `Luyện: ${picked.length ? picked.join(',') : 'Hỗn hợp'} - ${difficulty}`,
         questions: questions.map((q) => ({
           id: q.id, type: 'single', text: q.text, options: q.options,
           correctAnswers: q.correctAnswers, explanation: q.explanation,
@@ -114,8 +114,8 @@ export default function PracticePage() {
   const sendReport = async (qid: string) => {
     if (!reportMsg.trim()) return;
     try {
-      await reportQuestion(subject, qid, reportMsg.trim(), 'nguoi luyen');
-      setNotice('Da gui bao loi. Cam on ban!');
+      await reportQuestion(subject, qid, reportMsg.trim(), 'người luyện');
+      setNotice('Đã gửi báo lỗi. Cảm ơn bạn!');
       setReportFor(null);
       setReportMsg('');
     } catch (e) {
@@ -130,16 +130,16 @@ export default function PracticePage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="font-bold text-slate-900">Dang luyen: {subject} · {questions.length} cau</h1>
-          <button type="button" onClick={() => { setQuestions([]); setAnswers({}); }} className="text-xs font-bold text-slate-500 hover:text-red-600 cursor-pointer">Thoat</button>
+          <h1 className="font-bold text-slate-900">Đang luyện: {subject} · {questions.length} câu</h1>
+          <button type="button" onClick={() => { setQuestions([]); setAnswers({}); }} className="text-xs font-bold text-slate-500 hover:text-red-600 cursor-pointer">Thoát</button>
         </div>
         <div className="flex flex-col gap-4">
           {questions.map((q, i) => (
             <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex items-center gap-2 text-[11px] mb-2">
-                <span className="font-bold text-slate-500">Cau {i + 1}</span>
+                <span className="font-bold text-slate-500">Câu {i + 1}</span>
                 {q.topic && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">{q.topic}</span>}
-                {q.difficulty && <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{q.difficulty}</span>}
+                {q.difficulty && <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{DIFF_LABEL[q.difficulty] ?? q.difficulty}</span>}
               </div>
               <div className="text-sm text-slate-800 font-medium mb-3"><MarkdownRenderer content={q.text} /></div>
               <div className="flex flex-col gap-2">
@@ -164,7 +164,7 @@ export default function PracticePage() {
           type="button" onClick={submit}
           className="mt-5 w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 cursor-pointer"
         >
-          Nop bai ({Object.keys(answers).length}/{questions.length} da lam)
+          Nộp bài ({Object.keys(answers).length}/{questions.length} đã làm)
         </button>
       </div>
     );
@@ -176,11 +176,11 @@ export default function PracticePage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="rounded-2xl bg-slate-900 text-white p-5 mb-4 flex items-center gap-4">
           <div className="flex-1">
-            <h1 className="font-bold text-lg">Ket qua: {score}/{result.length} cau dung</h1>
-            <p className="text-xs text-slate-300">Da luu lich su — xem bieu do nang luc va cau sai gan day ben duoi.</p>
+            <h1 className="font-bold text-lg">Kết quả: {score}/{result.length} câu đúng</h1>
+            <p className="text-xs text-slate-300">Đã lưu lịch sử — xem biểu đồ năng lực và câu sai gần đây bên dưới.</p>
           </div>
           <button type="button" onClick={() => { setResult(null); setQuestions([]); }} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold cursor-pointer">
-            <RotateCcw size={15} /> Luyen tiep
+            <RotateCcw size={15} /> Luyện tiếp
           </button>
         </div>
         {notice && <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-4">{notice}</p>}
@@ -188,9 +188,9 @@ export default function PracticePage() {
           {result.map((r, i) => (
             <div key={r.q.id} className={`rounded-2xl border p-4 bg-white ${r.ok ? 'border-green-200' : 'border-red-200'}`}>
               <div className="flex items-center gap-2 text-[11px] mb-1.5">
-                <span className="font-bold text-slate-500">Cau {i + 1}</span>
+                <span className="font-bold text-slate-500">Câu {i + 1}</span>
                 {r.ok
-                  ? <span className="flex items-center gap-1 text-green-600 font-bold"><CheckCircle2 size={13} /> Dung</span>
+                  ? <span className="flex items-center gap-1 text-green-600 font-bold"><CheckCircle2 size={13} /> Đúng</span>
                   : <span className="flex items-center gap-1 text-red-500 font-bold"><XCircle size={13} /> Sai</span>}
                 {r.q.topic && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">{r.q.topic}</span>}
               </div>
@@ -201,26 +201,26 @@ export default function PracticePage() {
                   const isU = r.user === oi;
                   return (
                     <div key={oi} className={`px-2.5 py-1.5 rounded-lg ${isC ? 'bg-green-50 text-green-700 font-bold' : isU ? 'bg-red-50 text-red-600' : 'text-slate-500'}`}>
-                      {'ABCDE'[oi]}. {opt} {isC ? '← dap an dung' : isU ? '← ban chon' : ''}
+                      {'ABCDE'[oi]}. {opt} {isC ? '← đáp án đúng' : isU ? '← bạn chọn' : ''}
                     </div>
                   );
                 })}
               </div>
-              {r.q.explanation && <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg px-2.5 py-2">Giai thich: {r.q.explanation}</p>}
+              {r.q.explanation && <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg px-2.5 py-2">Giải thích: {r.q.explanation}</p>}
               <div className="mt-2">
                 {reportFor === r.q.id ? (
                   <div className="flex gap-2">
                     <input
                       value={reportMsg} onChange={(e) => setReportMsg(e.target.value)}
-                      placeholder="Mo ta loi sai cua cau hoi..."
+                      placeholder="Mô tả lỗi sai của câu hỏi..."
                       className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-400"
                     />
-                    <button type="button" onClick={() => sendReport(r.q.id)} className="px-3 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold cursor-pointer">Gui</button>
-                    <button type="button" onClick={() => setReportFor(null)} className="px-3 py-2 rounded-xl bg-slate-100 text-xs font-bold cursor-pointer">Huy</button>
+                    <button type="button" onClick={() => sendReport(r.q.id)} className="px-3 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold cursor-pointer">Gửi</button>
+                    <button type="button" onClick={() => setReportFor(null)} className="px-3 py-2 rounded-xl bg-slate-100 text-xs font-bold cursor-pointer">Hủy</button>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setReportFor(r.q.id)} className="flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 cursor-pointer">
-                    <Flag size={12} /> Bao loi cau hoi nay
+                    <Flag size={12} /> Báo lỗi câu hỏi này
                   </button>
                 )}
               </div>
@@ -234,20 +234,20 @@ export default function PracticePage() {
   // ---- Man hinh cau hinh luyen ----
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 font-serif italic">Luyen thi</h1>
-      <p className="text-xs text-slate-500 mt-1 mb-5">Khong can dang nhap. Chon chu de hon hop, do kho, so luong — de se tron thong minh.</p>
+      <h1 className="text-2xl font-bold text-slate-900 font-serif italic">Luyện thi</h1>
+      <p className="text-xs text-slate-500 mt-1 mb-5">Không cần đăng nhập. Chọn chủ đề hỗn hợp, độ khó, số lượng — đề sẽ trộn thông minh.</p>
       <div className="grid lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-5">
           <label className="block mb-4">
-            <span className="text-sm font-bold text-slate-700">Mon hoc</span>
+            <span className="text-sm font-bold text-slate-700">Môn học</span>
             <select value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
               {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
           <div className="mb-4">
-            <span className="text-sm font-bold text-slate-700">Chu de (chon nhieu = hon hop)</span>
+            <span className="text-sm font-bold text-slate-700">Chủ đề (chọn nhiều = hỗn hợp)</span>
             <div className="mt-2 flex flex-wrap gap-2">
-              {topics.length === 0 && <span className="text-xs text-slate-400">Chua co chu de — quan tri vien can import de truoc.</span>}
+              {topics.length === 0 && <span className="text-xs text-slate-400">Chưa có chủ đề — quản trị viên cần import đề trước.</span>}
               {topics.map((t) => (
                 <button
                   key={t} type="button" onClick={() => toggleTopic(t)}
@@ -258,11 +258,11 @@ export default function PracticePage() {
               ))}
             </div>
             {picked.length > 0 && (
-              <button type="button" onClick={() => setPicked([])} className="mt-2 text-[11px] text-slate-400 underline cursor-pointer">Bo chon (ve Hon hop)</button>
+              <button type="button" onClick={() => setPicked([])} className="mt-2 text-[11px] text-slate-400 underline cursor-pointer">Bỏ chọn (về Hỗn hợp)</button>
             )}
           </div>
           <div className="mb-4">
-            <span className="text-sm font-bold text-slate-700">Do kho</span>
+            <span className="text-sm font-bold text-slate-700">Độ khó</span>
             <div className="mt-2 grid sm:grid-cols-2 gap-2">
               {DIFFS.map((d) => (
                 <button
@@ -277,14 +277,14 @@ export default function PracticePage() {
           </div>
           <div className="grid sm:grid-cols-3 gap-3 mb-4">
             <label className="block">
-              <span className="text-sm font-bold text-slate-700">So cau</span>
+              <span className="text-sm font-bold text-slate-700">Số câu</span>
               <input type="number" min={1} max={200} value={count} onChange={(e) => setCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400" />
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700 mt-6">
-              <input type="checkbox" checked={shuffleQ} onChange={(e) => setShuffleQ(e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Tron cau hoi
+            <label className="flex items-center gap-2 text-sm text-slate-700 sm:mt-6">
+              <input type="checkbox" checked={shuffleQ} onChange={(e) => setShuffleQ(e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Trộn câu hỏi
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700 mt-6">
-              <input type="checkbox" checked={shuffleO} onChange={(e) => setShuffleO(e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Dao dap an
+            <label className="flex items-center gap-2 text-sm text-slate-700 sm:mt-6">
+              <input type="checkbox" checked={shuffleO} onChange={(e) => setShuffleO(e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Đảo đáp án
             </label>
           </div>
           {notice && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-3">{notice}</p>}
@@ -292,21 +292,21 @@ export default function PracticePage() {
             type="button" onClick={start} disabled={loading || !subject}
             className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Play size={16} /> {loading ? 'Dang tao de...' : `Bat dau luyen (${picked.length ? picked.length + ' chu de' : 'hon hop'} · ${difficulty} · ${count} cau)`}
+            <Play size={16} /> {loading ? 'Đang tạo đề...' : `Bắt đầu luyện (${picked.length ? picked.length + ' chủ đề' : 'hỗn hợp'} · ${DIFFS.find((x) => x.v === difficulty)?.label ?? difficulty} · ${count} câu)`}
           </button>
         </div>
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <CompetencyChart title="Nang luc theo chu de (sai nhieu → on lai)" data={competency?.byTopic || {}} />
-          <CompetencyChart title="Nang luc theo do kho" data={competency?.byDifficulty || {}} />
+          <CompetencyChart title="Năng lực theo chủ đề (sai nhiều → ôn lại)" data={competency?.byTopic || {}} />
+          <CompetencyChart title="Năng lực theo độ khó" data={competency?.byDifficulty || {}} />
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h3 className="font-bold text-slate-800 text-sm mb-2">Cac cau sai gan day</h3>
+            <h3 className="font-bold text-slate-800 text-sm mb-2">Các câu sai gần đây</h3>
             {recentErrors.length === 0
-              ? <p className="text-xs text-slate-400">Chua co cau sai nao. Lam bai de he thong ghi nhan.</p>
+              ? <p className="text-xs text-slate-400">Chưa có câu sai nào. Làm bài để hệ thống ghi nhận.</p>
               : <div className="flex flex-col gap-2 max-h-64 overflow-auto">
                 {recentErrors.slice(0, 10).map((s: any, i: number) => (
                   <div key={i} className="text-xs rounded-xl bg-red-50/60 border border-red-100 px-3 py-2">
-                    <div className="text-slate-700 font-medium line-clamp-2">{s.question}</div>
-                    <div className="text-slate-400 mt-1">Dap an dung: <b className="text-green-600">{JSON.stringify(s.correctAnswer)}</b></div>
+                    <div className="text-slate-700 font-medium line-clamp-2"><MarkdownRenderer content={String(s.question || '')} /></div>
+                    <div className="text-slate-400 mt-1">Đáp án đúng: <b className="text-green-600">{JSON.stringify(s.correctAnswer)}</b></div>
                   </div>
                 ))}
               </div>}
