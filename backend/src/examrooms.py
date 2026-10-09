@@ -71,6 +71,7 @@ def create_room(payload: dict[str, Any], created_by: str) -> dict[str, Any]:
         "code": payload.get("code") or _new_code(existing),
         "name": (payload.get("name") or "Phong thi").strip() or "Phong thi",
         "subject": (payload.get("subject") or "").strip(),
+        "unit": (payload.get("unit") or "").strip(),
         "topics": payload.get("topics") or [],
         "difficulty": payload.get("difficulty") or "Hon hop",
         "count": int(payload.get("count") or 10),

@@ -22,6 +22,7 @@ export default function PracticePage() {
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [subject, setSubject] = useState('');
   const [topics, setTopics] = useState<string[]>([]);
+  const [topicCounts, setTopicCounts] = useState<Record<string, number>>({});
   const [picked, setPicked] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState('Hon hop');
   const [count, setCount] = useState(10);
@@ -48,6 +49,7 @@ export default function PracticePage() {
     if (!subject) return;
     getBankTopics(subject).then((r) => {
       setTopics(r.topics || []);
+      setTopicCounts(r.counts?.byTopic || {});
       setPicked([]);
     }).catch(() => setTopics([]));
     getCompetency(subject).then(setCompetency).catch(() => setCompetency(null));
@@ -130,7 +132,7 @@ export default function PracticePage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="font-bold text-slate-900">Đang luyện: {subject} · {questions.length} câu</h1>
+          <h1 className="font-bold text-slate-900">Đang ôn tập: {subject} · {questions.length} câu</h1>
           <button type="button" onClick={() => { setQuestions([]); setAnswers({}); }} className="text-xs font-bold text-slate-500 hover:text-red-600 cursor-pointer">Thoát</button>
         </div>
         <div className="flex flex-col gap-4">
@@ -234,12 +236,12 @@ export default function PracticePage() {
   // ---- Man hinh cau hinh luyen ----
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 font-serif italic">Luyện thi</h1>
+      <h1 className="text-2xl font-bold text-slate-900 font-serif italic">Ôn tập</h1>
       <p className="text-xs text-slate-500 mt-1 mb-5">Không cần đăng nhập. Chọn chủ đề hỗn hợp, độ khó, số lượng — đề sẽ trộn thông minh.</p>
       <div className="grid lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-5">
           <label className="block mb-4">
-            <span className="text-sm font-bold text-slate-700">Môn học</span>
+            <span className="text-sm font-bold text-slate-700">Bộ câu hỏi</span>
             <select value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
               {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -253,7 +255,7 @@ export default function PracticePage() {
                   key={t} type="button" onClick={() => toggleTopic(t)}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer ${picked.includes(t) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
                 >
-                  {t}
+                  {t} ({topicCounts[t] || 0} câu)
                 </button>
               ))}
             </div>
@@ -292,12 +294,13 @@ export default function PracticePage() {
             type="button" onClick={start} disabled={loading || !subject}
             className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Play size={16} /> {loading ? 'Đang tạo đề...' : `Bắt đầu luyện (${picked.length ? picked.length + ' chủ đề' : 'hỗn hợp'} · ${DIFFS.find((x) => x.v === difficulty)?.label ?? difficulty} · ${count} câu)`}
+            <Play size={16} /> {loading ? 'Đang tạo đề...' : `Bắt đầu ôn tập (${picked.length ? picked.length + ' chủ đề' : 'hỗn hợp'} · ${DIFFS.find((x) => x.v === difficulty)?.label ?? difficulty} · ${count} câu)`}
           </button>
         </div>
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <CompetencyChart title="Năng lực theo chủ đề (sai nhiều → ôn lại)" data={competency?.byTopic || {}} />
-          <CompetencyChart title="Năng lực theo độ khó" data={competency?.byDifficulty || {}} />
+          {/* Ẩn biểu đồ năng lực theo yêu cầu */}
+          {/* <CompetencyChart title="Năng lực theo chủ đề (sai nhiều → ôn lại)" data={competency?.byTopic || {}} />
+          <CompetencyChart title="Năng lực theo độ khó" data={competency?.byDifficulty || {}} /> */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h3 className="font-bold text-slate-800 text-sm mb-2">Các câu sai gần đây</h3>
             {recentErrors.length === 0

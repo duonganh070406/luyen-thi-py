@@ -14,12 +14,15 @@ export default function ContactPage() {
           <div className="flex items-center gap-2 font-bold text-slate-800 mb-2">
             <Mail size={16} className="text-indigo-600" /> Thông tin liên hệ
           </div>
-          <p>Phòng đào tạo — Hệ thống luyện thi EduQuest (bản chạy local).</p>
+          <p>Phòng đào tạo — Hệ thống ôn tập EduQuest (bản chạy local).</p>
           <p className="mt-2">Email: <b className="text-slate-800">hotro@eduquest.local</b></p>
           <p>Điện thoại: <b className="text-slate-800">0123 456 789</b></p>
           <p className="mt-2 text-xs text-slate-400">
-            Gặp câu hỏi sai? Hãy dùng nút “Báo lỗi” ngay dưới mỗi câu hỏi khi luyện thi —
+            Gặp câu hỏi sai? Hãy dùng nút “Báo lỗi” ngay dưới mỗi câu hỏi khi ôn tập —
             báo cáo sẽ chuyển thẳng cho quản trị viên.
+          </p>
+          <p className="mt-2 text-xs text-slate-400">
+            Lưu ý: Thông tin chỉ hiển thị (demo local, không gửi email thật).
           </p>
         </div>
         <form

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from src import auth as auth_store
 from src import examrooms as store
+from src.utils import load_units, save_units
 
 router = APIRouter()
 
@@ -19,6 +20,7 @@ router = APIRouter()
 class RoomCreateBody(BaseModel):
     name: str = "Phong thi"
     subject: str = ""
+    unit: str = ""
     topics: list[str] = []
     difficulty: str = "Hon hop"
     count: int = 10
@@ -189,7 +191,7 @@ class ViolationBody(BaseModel):
 
 @router.post("/api/rooms/violation")
 def report_violation(body: ViolationBody):
-    """Chong gian lan: dem so lan chuyen tab. Qua gioi han -> tu dong thu bai."""
+    """Chong gian lan: dem so lan chuyen tab. Chi dem, khong tu dong thu bai (QTV thu thu cong)."""
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
@@ -206,8 +208,7 @@ def report_violation(body: ViolationBody):
     s["violations"] = int(s.get("violations", 0)) + 1
     s["updated_at"] = int(time.time())
     maxv = int(room.get("max_violations") or 3)
-    if s["violations"] >= maxv:
-        store.finalize_session(s)
+    # Chi dem, khong tu dong thu khi vuot gioi han
     _save_session(s)
     return {"ok": True, "violations": s["violations"], "submitted": bool(s.get("submitted")), "max": maxv}
 
@@ -315,3 +316,43 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     for i, r in enumerate(ranking, start=1):
         w.writerow([i, r["participant"], r["score"], r["total"], r["answered"], r["violations"], "Co" if r["submitted"] else "Chua"])
     return PlainTextResponse(buf.getvalue(), media_type="text/csv; charset=utf-8")
+
+
+# ---------- Units (Phòng ban/Khoa) CRUD ----------
+
+
+class UnitCreateBody(BaseModel):
+    name: str = ""
+
+
+@router.get("/api/units")
+def list_units(_: auth_store.AuthUser = Depends(auth_store.require_admin)):
+    """Lay danh sach don vi."""
+    return {"units": load_units()}
+
+
+@router.post("/api/units", status_code=201)
+def create_unit(body: UnitCreateBody, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
+    """Them don vi moi."""
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Cần nhập tên đơn vị.")
+    units = load_units()
+    # Check duplicate
+    for u in units:
+        if u.get("name", "").strip().lower() == name.lower():
+            raise HTTPException(status_code=400, detail="Đơn vị này đã tồn tại.")
+    units.append({"name": name})
+    save_units(units)
+    return {"ok": True, "unit": {"name": name}}
+
+
+@router.delete("/api/units/{unit_name}")
+def delete_unit(unit_name: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
+    """Xoa don vi."""
+    units = load_units()
+    rest = [u for u in units if u.get("name", "").strip().lower() != unit_name.strip().lower()]
+    if len(rest) == len(units):
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn vị.")
+    save_units(rest)
+    return {"ok": True, "total": len(rest)}

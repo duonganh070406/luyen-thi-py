@@ -341,6 +341,7 @@ export async function updateReport(subject: string, rid: string, status: string)
 export interface RoomPayload {
   name: string;
   subject: string;
+  unit: string;
   topics: string[];
   difficulty: string;
   count: number;
@@ -410,4 +411,29 @@ export async function reportViolation(code: string, participant: string, ticket 
 
 export async function submitRoom(code: string, participant: string, ticket = ''): Promise<any> {
   return fetchJson('/api/rooms/submit', { method: 'POST', body: JSON.stringify({ code, participant, ticket }) });
+}
+
+// ---------- Units (Phòng ban/Khoa) ----------
+
+export interface Unit {
+  name: string;
+}
+
+export async function getUnits(): Promise<{ units: Unit[] }> {
+  return fetchJson('/api/units', { headers: authHeaders() });
+}
+
+export async function addUnit(name: string): Promise<{ ok: boolean; unit: Unit }> {
+  return fetchJson('/api/units', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteUnit(unitName: string): Promise<{ ok: boolean; total: number }> {
+  return fetchJson(`/api/units/${encodeURIComponent(unitName)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
 }

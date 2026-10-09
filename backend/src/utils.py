@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from src.config import DATA_ROOT
+from src.config import DATA_ROOT, UNITS_FILE
 from src.markdown_parser import _rewrite_image_urls, parse_md
 
 
@@ -225,3 +225,22 @@ def read_note_content(path: Path, image_base_url: str = "") -> str:
     """Read markdown note content with automatic cache invalidation on file changes."""
     signature = _file_signature(path)
     return _read_note_content_cached(str(path), image_base_url, *signature)
+
+
+# ---------- Units (Phòng ban/Khoa) ----------
+
+def units_path() -> Path:
+    """Returns path to the units.json file."""
+    return UNITS_FILE
+
+
+def load_units() -> list[dict[str, Any]]:
+    """Load all units from units.json."""
+    if not UNITS_FILE.is_file():
+        return []
+    return read_json_list(UNITS_FILE)
+
+
+def save_units(units: list[dict[str, Any]]) -> None:
+    """Save units to units.json atomically."""
+    write_json_atomic(UNITS_FILE, units)

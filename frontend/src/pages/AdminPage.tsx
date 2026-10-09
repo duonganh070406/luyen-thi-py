@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag } from 'lucide-react';
+import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2 } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
 import {
   currentUser, listSubjects, getBank, addBankQuestion, deleteBankQuestion,
   updateBankQuestion, importBankFile, createRoom, listRooms, closeRoom,
   getMonitor, getLeaderboard, editScore, listReports, updateReport,
-  suggestDifficulty, getBankTopics, exportRoomCsv,
+  suggestDifficulty, getBankTopics, exportRoomCsv, getUnits, addUnit, deleteUnit,
 } from '../services/api.ts';
 
 const TABS = [
   { id: 'bank', label: 'Ngân hàng đề + Import' },
   { id: 'rooms', label: 'Phòng thi + Giám sát' },
+  { id: 'units', label: 'Quản lý đơn vị' },
   { id: 'reports', label: 'Báo lỗi' },
   { id: 'ml', label: 'ML độ khó' },
 ];
@@ -49,7 +50,7 @@ export default function AdminPage() {
         ))}
         <div className="flex-1" />
         <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
-          Môn:
+          Bộ câu hỏi:
           <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-xl border border-slate-200 px-2.5 py-2 text-xs outline-none">
             {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -57,6 +58,7 @@ export default function AdminPage() {
       </div>
       {tab === 'bank' && subject && <BankTab key={`bank-${subject}`} subject={subject} />}
       {tab === 'rooms' && <RoomsTab subjects={subjects} />}
+      {tab === 'units' && <UnitsTab />}
       {tab === 'reports' && subject && <ReportsTab key={`rp-${subject}`} subject={subject} />}
       {tab === 'ml' && subject && <MlTab key={`ml-${subject}`} subject={subject} />}
     </div>
@@ -122,7 +124,7 @@ function BankTab({ subject }: { subject: string }) {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
-            type="text" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder={`Môn mới? gõ tên để tạo (trống = ${subject})`}
+            type="text" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder={`Bộ câu hỏi mới? gõ tên để tạo (trống = ${subject})`}
             className="rounded-xl border border-indigo-200 px-3 py-2 text-xs w-64 outline-none bg-white"
           />
           <label className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">
@@ -220,20 +222,100 @@ function DifficultyEdit({ subject, q, onDone }: { subject: string; q: any; onDon
   );
 }
 
+/* ---------------- Quan ly don vi (Phong ban/Khoa) ---------------- */
+
+function UnitsTab() {
+  const [units, setUnits] = useState<any[]>([]);
+  const [newUnit, setNewUnit] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const reload = () => {
+    getUnits().then((r) => setUnits(r.units || [])).catch((e) => setMsg(String(e)));
+  };
+  useEffect(() => { reload(); }, []);
+
+  const doAdd = async () => {
+    if (!newUnit.trim()) return;
+    try {
+      await addUnit(newUnit.trim());
+      setNewUnit('');
+      setMsg('Đã thêm đơn vị.');
+      reload();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const doDelete = async (name: string) => {
+    if (!confirm('Xóa đơn vị này?')) return;
+    try {
+      await deleteUnit(name);
+      setMsg('Đã xóa đơn vị.');
+      reload();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
+        <h2 className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-2"><Building2 size={15} /> Thêm đơn vị mới</h2>
+        <div className="flex gap-2">
+          <input
+            value={newUnit}
+            onChange={(e) => setNewUnit(e.target.value)}
+            placeholder="Tên đơn vị (vd: Khoa Công nghệ)"
+            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+          />
+          <button type="button" onClick={doAdd} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">
+            Thêm
+          </button>
+        </div>
+      </div>
+
+      {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="font-bold text-sm text-slate-800 mb-2">Danh sách đơn vị ({units.length})</h2>
+        <div className="flex flex-col gap-2 max-h-96 overflow-auto">
+          {units.map((u) => (
+            <div key={u.name} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center justify-between">
+              <span className="font-semibold text-slate-800">{u.name}</span>
+              <button
+                type="button" onClick={() => doDelete(u.name)}
+                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                title="Xóa"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+          {units.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có đơn vị nào.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Phong thi + Giam sat ---------------- */
 
 function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   const [rooms, setRooms] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
-  const [form, setForm] = useState({ name: '', subject: '', topics: '', difficulty: 'Hon hop', count: 10, time_limit: 30, max_violations: 3, shuffle_questions: true, shuffle_options: true });
+  const [form, setForm] = useState({ name: '', subject: '', unit: '', topics: '', difficulty: 'Hon hop', count: 10, time_limit: 30, max_violations: 3, shuffle_questions: true, shuffle_options: true });
   const [monitorId, setMonitorId] = useState('');
   const [monitor, setMonitor] = useState<any>(null);
   const [ranking, setRanking] = useState<any[]>([]);
   const [editScores, setEditScores] = useState<Record<string, number>>({});
 
   const reload = () => listRooms().then((r) => setRooms(r.rooms || [])).catch((e) => setMsg(String(e)));
+  const reloadUnits = () => getUnits().then((r) => setUnits(r.units || [])).catch(() => setUnits([]));
+
   useEffect(() => {
     reload();
+    reloadUnits();
     if (subjects.length > 0 && !form.subject) setForm((f) => ({ ...f, subject: subjects[0].id }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjects]);
@@ -259,10 +341,12 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
 
   const doCreate = async () => {
     try {
-      if (!form.subject) { setMsg('Cần chọn môn.'); return; }
+      if (!form.subject) { setMsg('Cần chọn bộ câu hỏi.'); return; }
+      const selectedUnit = units.find((u) => u.id === form.unit);
       const r = await createRoom({
         name: form.name.trim() || 'Phòng thi',
         subject: form.subject,
+        unit: selectedUnit?.name || '',
         topics: form.topics.split(',').map((s) => s.trim()).filter(Boolean),
         difficulty: form.difficulty,
         count: Number(form.count) || 10,
@@ -285,30 +369,58 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   return (
     <div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
-        <h2 className="font-bold text-sm text-slate-800 mb-2">Tạo phòng thi online</h2>
-        <div className="grid sm:grid-cols-3 gap-2">
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Tên phòng (vd: Thi giữa kỳ)"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none" />
-          <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
-            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <input value={form.topics} onChange={(e) => setForm({ ...form, topics: e.target.value })} placeholder="Chủ đề (cách nhau dấu phẩy, trống = hỗn hợp)"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none" />
-          <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
-            {['Hon hop', 'De', 'Trung binh', 'Kho'].map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
-          </select>
-          <input type="number" min={1} max={200} value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })} placeholder="Số câu"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none" />
-          <input type="number" min={1} max={300} value={form.time_limit} onChange={(e) => setForm({ ...form, time_limit: Number(e.target.value) })} placeholder="Thời gian (phút)"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none" />
+        <h2 className="font-bold text-sm text-slate-800 mb-3">Tạo phòng thi online</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Tên phòng</label>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="vd: Thi giữa kỳ"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Bộ câu hỏi</label>
+            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Đơn vị</label>
+            <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
+              <option value="">-- Chọn đơn vị --</option>
+              {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Chủ đề</label>
+            <input value={form.topics} onChange={(e) => setForm({ ...form, topics: e.target.value })} placeholder="cách nhau dấu phẩy, trống = hỗn hợp"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Độ khó</label>
+            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
+              {['Hon hop', 'De', 'Trung binh', 'Kho'].map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Số câu</label>
+            <input type="number" min={1} max={200} value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Thời gian (phút)</label>
+            <input type="number" min={1} max={300} value={form.time_limit} onChange={(e) => setForm({ ...form, time_limit: Number(e.target.value) })}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Giới hạn chuyển tab</label>
+            <input type="number" min={1} max={20} value={form.max_violations} onChange={(e) => setForm({ ...form, max_violations: Number(e.target.value) })}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-100 text-xs text-slate-600">
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.shuffle_questions} onChange={(e) => setForm({ ...form, shuffle_questions: e.target.checked })} className="accent-indigo-600" /> Trộn đề</label>
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.shuffle_options} onChange={(e) => setForm({ ...form, shuffle_options: e.target.checked })} className="accent-indigo-600" /> Đảo đáp án</label>
-          <label className="flex items-center gap-1.5">Giới hạn chuyển tab:
-            <input type="number" min={1} max={20} value={form.max_violations} onChange={(e) => setForm({ ...form, max_violations: Number(e.target.value) })} className="w-14 rounded-lg border border-slate-200 px-2 py-1 outline-none" />
-          </label>
-          <button type="button" onClick={doCreate} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer">Tạo phòng</button>
+          <div className="flex-1" />
+          <button type="button" onClick={doCreate} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">Tạo phòng</button>
         </div>
       </div>
 
@@ -327,7 +439,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
                     {r.status === 'open' ? 'Đang mở' : 'Đã đóng'}
                   </span>
                 </div>
-                <div className="text-slate-500 mt-1">{r.subject} · {r.count} câu · {r.time_limit} phút · {DIFF_LABEL[r.difficulty] ?? r.difficulty}</div>
+                <div className="text-slate-500 mt-1">{r.subject} · {r.unit ? r.unit : ''} · {r.count} câu · {r.time_limit} phút · {DIFF_LABEL[r.difficulty] ?? r.difficulty}</div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <button type="button" onClick={() => setMonitorId(r.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-bold cursor-pointer">
                     <Monitor size={12} /> Giám sát
@@ -350,7 +462,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="font-bold text-sm text-slate-800 mb-2">
-            {monitor ? `Giám sát trực tiếp: ${monitor.room?.name} (${monitor.room?.code}) — ${monitor.total} thí sinh` : 'Chọn phòng để giám sát (tự làm mới 3s)'}
+            {monitor ? `Giám sát trực tiếp: ${monitor.room?.name} (${monitor.room?.code}) — ${monitor.total} người tham gia` : 'Chọn phòng để giám sát (tự làm mới 3s)'}
           </h2>
           {monitor && (
             <>

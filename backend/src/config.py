@@ -33,6 +33,7 @@ def _resolve_data_root() -> Path:
 
 DATA_ROOT = _resolve_data_root()
 ENV_FILE_PATH = WORKSPACE_ROOT / ".env"
+UNITS_FILE = DATA_ROOT / "units.json"
 
 
 def load_env_file(path: Path) -> None:

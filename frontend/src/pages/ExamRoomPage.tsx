@@ -46,7 +46,7 @@ export default function ExamRoomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, room, done]);
 
-  // chong gian lan: chuyen tab / mat focus
+  // chong gian lan: chuyen tab / mat focus - chi dem, khong tu dong thu
   useEffect(() => {
     if (!room || done) return;
     const onHide = async () => {
@@ -57,10 +57,10 @@ export default function ExamRoomPage() {
           if (r.submitted) {
             setWarn(r.expired
               ? 'Đã hết giờ làm bài — hệ thống tự động thu bài!'
-              : `Bạn đã chuyển tab ${r.violations}/${r.max} lần — bài thi bị tự động thu!`);
+              : `Bạn đã chuyển tab ${r.violations} lần (đang đếm).`);
             void doSubmit(true);
           } else {
-            setWarn(`Cảnh báo chống gian lận: phát hiện chuyển tab (${r.violations}/${r.max}). Vượt giới hạn sẽ tự động thu bài!`);
+            setWarn(`Cảnh báo chống gian lận: phát hiện chuyển tab (${r.violations} lần). Quản trị viên sẽ theo dõi.`);
           }
         } catch { /* ignore */ }
       }
