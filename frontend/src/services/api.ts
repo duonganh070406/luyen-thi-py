@@ -397,8 +397,8 @@ export function exportRoomCsv(roomId: string): void {
     .catch((e) => alert(`Khong tai duoc bao cao: ${e instanceof Error ? e.message : e}`));
 }
 
-export async function joinRoom(code: string, participant: string): Promise<any> {
-  return fetchJson('/api/rooms/join', { method: 'POST', body: JSON.stringify({ code, participant }) });
+export async function joinRoom(code: string, participant: string, unit = ''): Promise<any> {
+  return fetchJson('/api/rooms/join', { method: 'POST', body: JSON.stringify({ code, participant, unit }) });
 }
 
 export async function saveRoomAnswer(code: string, participant: string, question_id: string, answer: any, ticket = ''): Promise<any> {

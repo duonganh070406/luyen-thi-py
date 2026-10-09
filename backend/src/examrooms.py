@@ -199,13 +199,14 @@ def is_expired(room: dict[str, Any], sess: dict[str, Any]) -> bool:
     return int(time.time()) > int(deadline)
 
 
-def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
     room = get_room_by_code(code)
     if not room:
         raise ValueError("Mã phòng thi không tồn tại.")
     name = (participant or "").strip()
     if not name:
         raise ValueError("Vui lòng nhập tên để vào thi.")
+    unit_name = (unit or "").strip()
     sessions = load_sessions()
     for s in sessions:
         if s.get("room_id") == room["id"] and s.get("participant") == name:
@@ -213,6 +214,7 @@ def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, An
             # Xoay ticket moi de chi 1 tab trinh duyet duoc phep lam bai.
             s["ticket"] = secrets.token_urlsafe(24)
             s["updated_at"] = int(time.time())
+            s["unit"] = unit_name
             if not s.get("submitted") and (room.get("status") != "open" or is_expired(room, s)):
                 finalize_session(s)
             save_sessions(sessions)
@@ -224,6 +226,7 @@ def join_room(code: str, participant: str) -> tuple[dict[str, Any], dict[str, An
     sess = {
         "room_id": room["id"],
         "participant": name,
+        "unit": unit_name,
         "ticket": secrets.token_urlsafe(24),
         "questions": questions,
         "answers": {},

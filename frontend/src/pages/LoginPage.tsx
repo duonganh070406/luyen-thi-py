@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import PasswordInput from '../components/PasswordInput.tsx';
-import { login, register } from '../services/api.ts';
+import { useNavigate } from 'react-router-dom';
+import dongSonBg from '../assets/dong_son_bg.jpg';
+import { login } from '../services/api.ts';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,9 +15,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const r = mode === 'login'
-        ? await login(username.trim(), password)
-        : await register(username.trim(), password);
+      const r = await login(username.trim(), password);
       window.dispatchEvent(new Event('eq-auth'));
       navigate(r.role === 'admin' ? '/admin' : '/luyen-thi');
     } catch (err) {
@@ -29,47 +26,65 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-12">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-900 mb-1">
-          {mode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'}
-        </h1>
-        <p className="text-xs text-slate-500 mb-5">
-          {mode === 'login'
-            ? 'Quản trị viên đăng nhập để quản lý đề thi và phòng thi.'
-            : 'Tài khoản tự đăng ký chỉ có quyền người dùng.'}
-        </p>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Tên đăng nhập</span>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="vd: admin"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-              autoComplete="username"
-            />
-          </label>
-          <PasswordInput value={password} onChange={setPassword} label="Mật khẩu" placeholder="Nhập mật khẩu" />
-          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !username.trim() || !password}
-            className="mt-1 w-full py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
-          </button>
-        </form>
-        <div className="mt-4 text-center text-xs text-slate-500">
-          {mode === 'login' ? (
-            <>Chưa có tài khoản? <button type="button" onClick={() => setMode('register')} className="text-indigo-600 font-bold cursor-pointer">Đăng ký</button></>
-          ) : (
-            <>Đã có tài khoản? <button type="button" onClick={() => setMode('login')} className="text-indigo-600 font-bold cursor-pointer">Đăng nhập</button></>
-          )}
+    <div
+      className="flex-1 min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12 relative bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: `radial-gradient(circle at center, rgba(30, 2, 2, 0.65) 0%, rgba(20, 0, 0, 0.92) 100%), url(${dongSonBg})`,
+        backgroundColor: '#2A0000',
+      }}
+    >
+      <div className="relative w-full max-w-[340px] z-10">
+        <div className="rounded-2xl border border-red-900/60 bg-[#350202]/92 backdrop-blur-md px-7 py-8 shadow-2xl text-white">
+          <h1 className="text-xl font-bold text-white mb-6 text-center tracking-wide">
+            Đăng nhập
+          </h1>
+
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-200 mb-1.5 ml-1">
+                Tên đăng nhập
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
+                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-[#D4AF37]"
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-slate-200 mb-1.5 ml-1">
+                Mật khẩu
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-[#D4AF37]"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && (
+              <p className="text-[11px] text-red-200 bg-red-950/80 border border-red-800 rounded-lg px-3 py-1.5 text-center">
+                {error}
+              </p>
+            )}
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading || !username.trim() || !password}
+                className="w-full h-10 rounded-full bg-[#D4AF37] hover:bg-[#E5C158] active:bg-[#C29E2E] text-[#3D0A0A] text-xs font-bold transition-colors cursor-pointer shadow-md disabled:opacity-60 flex items-center justify-center tracking-wider"
+              >
+                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              </button>
+            </div>
+          </form>
         </div>
-        <p className="mt-4 text-center text-[11px] text-slate-400">
-          Mặc định: <b>admin / admin123</b> · <Link to="/phong-thi" className="text-indigo-500 underline">Vào thi không cần mật khẩu</Link>
-        </p>
       </div>
     </div>
   );

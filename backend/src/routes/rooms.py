@@ -99,6 +99,7 @@ def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require
 class JoinBody(BaseModel):
     code: str = ""
     participant: str = ""
+    unit: str = ""
 
 
 @router.post("/api/rooms/join")
@@ -109,7 +110,7 @@ def join(body: JoinBody):
     chi co trong `detail` va chi khi bai da nop.
     """
     try:
-        room, sess = store.join_room(body.code, body.participant)
+        room, sess = store.join_room(body.code, body.participant, body.unit)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {

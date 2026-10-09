@@ -1,7 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { GraduationCap, LogOut, ShieldCheck, Menu, X } from 'lucide-react';
+import { LogOut, ShieldCheck, Menu, X } from 'lucide-react';
 import { currentUser, fetchMe, logout } from '../../services/api.ts';
+import cybersecurityLogo from '../../assets/cybersecurity_department_a05_logo_symbol.png';
+import youthUnionLogo from '../../assets/ho_chi_minh_communist_youth_union.png';
 
 const LINKS = [
   { to: '/', label: 'Trang chủ', end: true },
@@ -11,7 +13,7 @@ const LINKS = [
   { to: '/lien-he', label: 'Liên hệ' },
 ];
 
-/** Thanh dieu huong chung: Trang chu / Gioi thieu / Luyen thi / Phong thi / Lien he. */
+/** Thanh điều hướng chung: Trang chủ / Giới thiệu / Luyện thi / Phòng thi / Liên hệ. */
 export default function SiteNav() {
   const [user, setUser] = useState(currentUser());
   const [open, setOpen] = useState(false);
@@ -21,7 +23,7 @@ export default function SiteNav() {
     const sync = () => setUser(currentUser());
     window.addEventListener('storage', sync);
     window.addEventListener('eq-auth', sync);
-    // Tu xac minh token con hieu luc khong (vd server vua reset data)
+    // Tự xác minh token còn hiệu lực không
     if (currentUser()) {
       fetchMe().catch(() => {
         logout();
@@ -42,69 +44,62 @@ export default function SiteNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
+    <header className="sticky top-0 z-40 bg-[#8B0000] shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 font-bold text-indigo-700 cursor-pointer"
+          className="flex items-center gap-3 cursor-pointer select-none"
         >
-          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
-            <GraduationCap size={18} />
+          <img src={cybersecurityLogo} alt="Cục An ninh mạng" className="h-10 w-auto object-contain" />
+          <img src={youthUnionLogo} alt="Đoàn TNCS Hồ Chí Minh" className="h-10 w-auto object-contain" />
+          <span className="font-bold text-base md:text-lg tracking-wider text-white uppercase ml-1 drop-shadow-sm whitespace-nowrap">
+            CỤC AN NINH MẠNG
           </span>
-          <span className="hidden sm:inline">EduQuest</span>
         </button>
-        <nav className="hidden md:flex items-center gap-1 ml-4">
+
+        <nav className="hidden md:flex items-center gap-1">
           {LINKS.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.end}
               className={({ isActive }) =>
-                `px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                `px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  isActive ? 'bg-white/20 text-white' : 'text-white/90 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
               {l.label}
             </NavLink>
           ))}
-        </nav>
-        <div className="flex-1" />
-        {user?.role === 'admin' && (
-          <button
-            type="button"
-            onClick={() => navigate('/admin')}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 cursor-pointer"
-          >
-            <ShieldCheck size={15} /> Quản trị
-          </button>
-        )}
-        {user ? (
-          <span className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
-            <span className="font-bold text-slate-800">{user.username}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100">{user.role}</span>
+          {user?.role === 'admin' && (
             <button
               type="button"
-              onClick={doLogout}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
-              title="Đăng xuất"
+              onClick={() => navigate('/admin')}
+              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4AF37] text-[#8B0000] hover:bg-[#E5C158] cursor-pointer"
             >
-              <LogOut size={16} />
+              <ShieldCheck size={14} /> Quản trị
             </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => navigate('/dang-nhap')}
-            className="hidden sm:block px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 cursor-pointer"
-          >
-            Đăng nhập
-          </button>
-        )}
+          )}
+          {user && (
+            <div className="ml-2 flex items-center gap-2 text-xs text-white">
+              <span className="font-bold">{user.username}</span>
+              <button
+                type="button"
+                onClick={doLogout}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white cursor-pointer"
+                title="Đăng xuất"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          )}
+        </nav>
+
         <button
           type="button"
-          className="md:hidden p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+          className="md:hidden p-2 rounded-lg hover:bg-white/10 text-white cursor-pointer"
           onClick={() => setOpen((o) => !o)}
           aria-label="Thực đơn"
         >
@@ -112,7 +107,7 @@ export default function SiteNav() {
         </button>
       </div>
       {open && (
-        <nav className="md:hidden border-t border-slate-100 px-4 py-2 flex flex-col gap-1 bg-white">
+        <nav className="md:hidden border-t border-white/20 px-4 py-2 flex flex-col gap-1 bg-[#8B0000]">
           {LINKS.map((l) => (
             <NavLink
               key={l.to}
@@ -120,23 +115,23 @@ export default function SiteNav() {
               end={l.end}
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                `px-3 py-2.5 rounded-lg text-sm font-semibold ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'}`
+                `px-3 py-2.5 rounded-lg text-sm font-semibold ${isActive ? 'bg-white/20 text-white' : 'text-white/90'}`
               }
             >
               {l.label}
             </NavLink>
           ))}
           {user?.role === 'admin' && (
-            <NavLink to="/admin" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold text-amber-700 bg-amber-50">
+            <NavLink to="/admin" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold bg-[#D4AF37] text-[#8B0000]">
               Quản trị viên
             </NavLink>
           )}
           {user ? (
-            <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-red-600">
+            <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white">
               Đăng xuất ({user.username})
             </button>
           ) : (
-            <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold text-indigo-700 bg-indigo-50">
+            <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold bg-[#D4AF37] text-[#8B0000]">
               Đăng nhập
             </NavLink>
           )}

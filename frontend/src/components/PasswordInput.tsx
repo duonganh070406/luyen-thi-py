@@ -13,8 +13,8 @@ export default function PasswordInput({ value, onChange, placeholder, label }: P
   const [show, setShow] = useState(false);
   return (
     <label className="block">
-      {label && <span className="text-sm font-semibold text-slate-700">{label}</span>}
-      <span className="mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+      {label && <span className="text-sm font-bold text-slate-700">{label}</span>}
+      <span className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 focus-within:border-[#8B0000] focus-within:ring-2 focus-within:ring-[#8B0000]/10">
         <Lock size={16} className="text-slate-400 shrink-0" />
         <input
           type={show ? 'text' : 'password'}
@@ -27,7 +27,7 @@ export default function PasswordInput({ value, onChange, placeholder, label }: P
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          className="text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+          className="text-slate-400 hover:text-[#8B0000] transition-colors cursor-pointer"
           aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
           title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
         >
