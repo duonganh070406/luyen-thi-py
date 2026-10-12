@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2 } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
 import {
@@ -17,9 +17,13 @@ const TABS = [
   { id: 'ml', label: 'ML độ khó' },
 ];
 
+const TAB_IDS = TABS.map((t) => t.id);
+
 export default function AdminPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('bank');
+  const { tab: tabParam } = useParams();
+  const tab = TAB_IDS.includes(tabParam ?? '') ? tabParam! : 'bank';
+  const setTab = (id: string) => navigate(`/admin/${id}`);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [subject, setSubject] = useState('');
 

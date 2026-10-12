@@ -375,7 +375,7 @@ export default function App() {
           <Route path="/phong-thi" element={<ExamRoomPage />} />
           <Route path="/lien-he" element={<ContactPage />} />
           <Route path="/dang-nhap" element={<LoginPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/:tab?" element={<AdminPage />} />
           <Route path="/subject/:subjectId" element={<AppContent />} />
           <Route path="/subject/:subjectId/note/*" element={<AppContent />} />
           <Route path="/subject/:subjectId/exam/*" element={<AppContent />} />

@@ -1,0 +1,7 @@
+Câu hỏi,A,B,C,D,E,Đáp án,Độ khó,Chủ đề,Giải thích
+Đạo hàm của $f(x) = \ln(x)$ là gì?,$\frac{1}{x}$,$-\frac{1}{x}$,$e^x$,$\ln(x)$,,A,Dễ,Đạo hàm,(ln x)' = 1/x với x > 0.
+"Chuỗi nào sau đây phân kỳ?","$\sum 1/n^2$","$\sum 1/n$","$\sum (-1)^n/n$","Cả ba chuỗi cùng hội tụ",,B,Trung bình,Chuỗi số,Chuỗi điều hòa phân kỳ còn chuỗi Riemann p = 2 hội tụ.
+Cấp của phương trình vi phân $y''' + y = e^x$ là bao nhiêu?,1,2,3,4,,C,Dễ,Phương trình vi phân,Cấp là cấp cao nhất của đạo hàm có mặt trong phương trình.
+Biến đổi Laplace của hàm $f(t) = 1$ là gì?,$t$,$1/s$,$s$,$1/s^2$,$e^t$,B,Dễ,Biến đổi Laplace,L{1} = 1/s.
+Bán kính hội tụ của chuỗi lũy thừa $\sum x^n/(n 3^n)$ là bao nhiêu?,1,3,9,Vô cùng,,B,Khó,Chuỗi lũy thừa,Dùng tiêu chuẩn D'Alembert được R = 3.
+"Tích phân $\int_0^1 x dx$ bằng bao nhiêu?",0,"1/2",1,2,,B,Trung bình,Tích phân,Nguyên hàm là x^2/2 thay cận 0 và 1 được 1/2.
