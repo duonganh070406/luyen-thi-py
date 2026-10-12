@@ -5,12 +5,14 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Inter", ui-sans-serif, system-ui, sans-serif;
-  
-  --color-primary: #8B0000;
-  --color-primary-dark: #6B0000;
-  --color-primary-light: #A00000;
+
+  /* Do Cong an: do son + vang */
+  --color-primary: #A6192E;
+  --color-primary-dark: #7A1020;
+  --color-primary-deep: #5C0A18;
+  --color-primary-light: #C2243C;
   --color-gold: #D4AF37;
-  --color-gold-light: #E5C158;
+  --color-gold-light: #F0D678;
   --color-gold-dark: #B8960C;
 }
 

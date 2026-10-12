@@ -58,7 +58,9 @@ CREATE TABLE IF NOT EXISTS rooms(
   status TEXT NOT NULL DEFAULT 'open',
   created_by TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL DEFAULT 0,
-  max_violations INTEGER NOT NULL DEFAULT 3
+  max_violations INTEGER NOT NULL DEFAULT 3,
+  auto_submit INTEGER NOT NULL DEFAULT 0,
+  show_answers INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS room_sessions(
   room_id TEXT NOT NULL,
@@ -348,7 +350,8 @@ def attempt_delete(conn: sqlite3.Connection, username: str) -> None:
 
 _ROOM_COLS = (
     "id, code, name, subject, unit, topics, difficulty, count, time_limit,"
-    " shuffle_questions, shuffle_options, status, created_by, created_at, max_violations"
+    " shuffle_questions, shuffle_options, status, created_by, created_at, max_violations,"
+    " auto_submit, show_answers"
 )
 
 
@@ -357,6 +360,8 @@ def _room_from_row(r: sqlite3.Row) -> dict[str, Any]:
     d["topics"] = _load(d.get("topics"), [])
     d["shuffle_questions"] = bool(d.get("shuffle_questions", 1))
     d["shuffle_options"] = bool(d.get("shuffle_options", 1))
+    d["auto_submit"] = bool(d.get("auto_submit", 0))
+    d["show_answers"] = bool(d.get("show_answers", 1))
     return d
 
 
@@ -385,7 +390,7 @@ def room_insert(conn: sqlite3.Connection, room: dict[str, Any]) -> None:
         conn,
         "INSERT INTO rooms(id, code, name, subject, unit, topics, difficulty, count,"
         " time_limit, shuffle_questions, shuffle_options, status, created_by, created_at,"
-        " max_violations) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " max_violations, auto_submit, show_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)",
         (
             room.get("id"), str(room.get("code", "")).strip().upper(),
             room.get("name", ""), room.get("subject", ""), room.get("unit", ""),
@@ -395,6 +400,7 @@ def room_insert(conn: sqlite3.Connection, room: dict[str, Any]) -> None:
             1 if room.get("shuffle_options", True) else 0,
             room.get("status", "open"), room.get("created_by", ""),
             int(room.get("created_at") or 0), int(room.get("max_violations") or 3),
+            1 if room.get("auto_submit") else 0, 0 if room.get("show_answers") is False else 1,
         ),
     )
 
@@ -404,13 +410,14 @@ def room_upsert(conn: sqlite3.Connection, room: dict[str, Any]) -> None:
         conn,
         "INSERT INTO rooms(id, code, name, subject, unit, topics, difficulty, count,"
         " time_limit, shuffle_questions, shuffle_options, status, created_by, created_at,"
-        " max_violations) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        " max_violations, auto_submit, show_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)"
         " ON CONFLICT(id) DO UPDATE SET code=excluded.code, name=excluded.name,"
         " subject=excluded.subject, unit=excluded.unit, topics=excluded.topics,"
         " difficulty=excluded.difficulty, count=excluded.count, time_limit=excluded.time_limit,"
         " shuffle_questions=excluded.shuffle_questions, shuffle_options=excluded.shuffle_options,"
         " status=excluded.status, created_by=excluded.created_by, created_at=excluded.created_at,"
-        " max_violations=excluded.max_violations",
+        " max_violations=excluded.max_violations, auto_submit=excluded.auto_submit,"
+        " show_answers=excluded.show_answers",
         (
             room.get("id"), str(room.get("code", "")).strip().upper(),
             room.get("name", ""), room.get("subject", ""), room.get("unit", ""),
@@ -420,6 +427,7 @@ def room_upsert(conn: sqlite3.Connection, room: dict[str, Any]) -> None:
             1 if room.get("shuffle_options", True) else 0,
             room.get("status", "open"), room.get("created_by", ""),
             int(room.get("created_at") or 0), int(room.get("max_violations") or 3),
+            1 if room.get("auto_submit") else 0, 0 if room.get("show_answers") is False else 1,
         ),
     )
 
@@ -429,7 +437,8 @@ def room_update_fields(conn: sqlite3.Connection, room_id: str, fields: dict[str,
     vals: list[Any] = []
     for k, v in fields.items():
         if k in ("name", "subject", "unit", "difficulty", "status", "created_by",
-                 "count", "time_limit", "max_violations", "created_at"):
+                 "count", "time_limit", "max_violations", "created_at",
+                 "auto_submit", "show_answers"):
             cols.append(f"{k}=?")
             vals.append(v)
         elif k in ("shuffle_questions", "shuffle_options"):
@@ -462,13 +471,14 @@ def room_update_fields(conn: sqlite3.Connection, room_id: str, fields: dict[str,
 # ---------- room_sessions ----------
 
 _SESS_COLS = (
-    "room_id, participant, unit, ticket, questions, answers, violations, joins,"
+    "room_id, participant, unit, id_number, ticket, questions, answers, violations, joins,"
     " joined_at, deadline, updated_at, submitted, submitted_at, score, total, manual_edit"
 )
 
 
 def _sess_from_row(r: sqlite3.Row) -> dict[str, Any]:
     d = dict(r)
+    d["id_number"] = str(d.get("id_number") or "")
     d["questions"] = _load(d.get("questions"), [])
     d["answers"] = _load(d.get("answers"), {})
     for k in ("violations", "joins", "joined_at", "deadline", "updated_at", "score", "total"):
@@ -492,10 +502,11 @@ def session_get(conn: sqlite3.Connection, room_id: str, participant: str) -> dic
 def session_put(conn: sqlite3.Connection, sess: dict[str, Any]) -> None:
     _write(
         conn,
-        "INSERT INTO room_sessions(room_id, participant, unit, ticket, questions, answers,"
+        "INSERT INTO room_sessions(room_id, participant, unit, id_number, ticket, questions, answers,"
         " violations, joins, joined_at, deadline, updated_at, submitted, submitted_at,"
-        " score, total, manual_edit) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        " score, total, manual_edit) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         " ON CONFLICT(room_id, participant) DO UPDATE SET unit=excluded.unit,"
+        " id_number=excluded.id_number,"
         " ticket=excluded.ticket, questions=excluded.questions, answers=excluded.answers,"
         " violations=excluded.violations, joins=excluded.joins, joined_at=excluded.joined_at,"
         " deadline=excluded.deadline, updated_at=excluded.updated_at,"
@@ -503,7 +514,8 @@ def session_put(conn: sqlite3.Connection, sess: dict[str, Any]) -> None:
         " score=excluded.score, total=excluded.total, manual_edit=excluded.manual_edit",
         (
             str(sess.get("room_id", "")), str(sess.get("participant", "")),
-            str(sess.get("unit") or ""), str(sess.get("ticket") or ""),
+            str(sess.get("unit") or ""), str(sess.get("id_number") or ""),
+            str(sess.get("ticket") or ""),
             _dump(sess.get("questions") or []), _dump(sess.get("answers") or {}),
             int(sess.get("violations") or 0), int(sess.get("joins") or 1),
             int(sess.get("joined_at") or 0), int(sess.get("deadline") or 0),
@@ -1099,6 +1111,16 @@ def init_db() -> dict[str, int] | None:
         conn = connect()
         try:
             conn.executescript(_SCHEMA)
+            # DB cu (tao truoc khi co 2 cot nay): them neu thieu
+            for ddl in (
+                "ALTER TABLE rooms ADD COLUMN auto_submit INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE rooms ADD COLUMN show_answers INTEGER NOT NULL DEFAULT 1",
+                "ALTER TABLE room_sessions ADD COLUMN id_number TEXT NOT NULL DEFAULT ''",
+            ):
+                try:
+                    conn.execute(ddl)
+                except Exception:
+                    pass
             counts: dict[str, int] | None = None
             if fresh:
                 counts = _migrate_from_json(conn)

@@ -28,6 +28,8 @@ class RoomCreateBody(BaseModel):
     shuffle_questions: bool = True
     shuffle_options: bool = True
     max_violations: int = 3
+    auto_submit: bool = False
+    show_answers: bool = True
 
 
 @router.post("/api/rooms", status_code=201)
@@ -56,6 +58,8 @@ class RoomUpdateBody(BaseModel):
     status: str | None = None
     time_limit: int | None = None
     max_violations: int | None = None
+    auto_submit: bool | None = None
+    show_answers: bool | None = None
 
 
 @router.put("/api/rooms/{room_id}")
@@ -69,6 +73,10 @@ def update_room(room_id: str, body: RoomUpdateBody, _: auth_store.AuthUser = Dep
         fields["time_limit"] = max(1, int(body.time_limit))
     if body.max_violations is not None:
         fields["max_violations"] = max(1, int(body.max_violations))
+    if body.auto_submit is not None:
+        fields["auto_submit"] = bool(body.auto_submit)
+    if body.show_answers is not None:
+        fields["show_answers"] = bool(body.show_answers)
     if not store.update_room_fields(room_id, fields):
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     return {"ok": True}
@@ -92,6 +100,7 @@ class JoinBody(BaseModel):
     code: str = ""
     participant: str = ""
     unit: str = ""
+    id_number: str = ""
 
 
 @router.post("/api/rooms/join")
@@ -102,9 +111,10 @@ def join(body: JoinBody):
     chi co trong `detail` va chi khi bai da nop.
     """
     try:
-        room, sess = store.join_room(body.code, body.participant, body.unit)
+        room, sess = store.join_room(body.code, body.participant, body.unit, body.id_number)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    show = room.get("show_answers", True)
     return {
         "ok": True,
         "room": {k: room[k] for k in ("id", "code", "name", "subject", "time_limit", "max_violations", "status")},
@@ -114,7 +124,8 @@ def join(body: JoinBody):
         "answers": sess.get("answers") or {},
         "violations": sess.get("violations", 0),
         "submitted": bool(sess.get("submitted")),
-        "detail": store.session_detail(sess) if sess.get("submitted") else [],
+        "show_answers": bool(show),
+        "detail": store.session_detail(sess) if (sess.get("submitted") and show) else [],
     }
 
 
@@ -167,15 +178,17 @@ class ViolationBody(BaseModel):
 
 @router.post("/api/rooms/violation")
 def report_violation(body: ViolationBody):
-    """Chong gian lan: dem so lan chuyen tab. Chi dem, khong tu dong thu bai (QTV thu thu cong)."""
+    """Chong gian lan: dem so lan chuyen tab. Tu dong thu neu phong bat auto_submit va vuot gioi han."""
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     maxv = int(room.get("max_violations") or 3)
+    auto = bool(room.get("auto_submit", False))
     just_expired = False
+    auto_took = False
 
     def _apply(s: dict[str, Any]) -> None:
-        nonlocal just_expired
+        nonlocal just_expired, auto_took
         _check_ticket_or_403(s, body.ticket)
         if s.get("submitted"):
             return
@@ -185,7 +198,10 @@ def report_violation(body: ViolationBody):
             return
         s["violations"] = int(s.get("violations", 0)) + 1
         s["updated_at"] = int(time.time())
-        # Chi dem, khong tu dong thu khi vuot gioi han
+        # Tu thu bai khi vuot so lan cho phep (neu ky thi bat che do nay)
+        if auto and int(s["violations"]) > maxv:
+            store.finalize_session(s)
+            auto_took = True
 
     try:
         s = store.update_session(room["id"], body.participant, _apply)
@@ -193,7 +209,7 @@ def report_violation(body: ViolationBody):
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
     if just_expired:
         return {"ok": True, "violations": s.get("violations", 0), "submitted": True, "max": maxv, "expired": True}
-    return {"ok": True, "violations": s.get("violations", 0), "submitted": bool(s.get("submitted")), "max": maxv}
+    return {"ok": True, "violations": s.get("violations", 0), "submitted": bool(s.get("submitted")), "max": maxv, "auto_submitted": auto_took}
 
 
 class SubmitBody(BaseModel):
@@ -218,11 +234,13 @@ def submit(body: SubmitBody):
         s = store.update_session(room["id"], body.participant, _apply)
     except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    show = room.get("show_answers", True)
     return {
         "ok": True,
         "score": s.get("score", 0),
         "total": s.get("total", len(s.get("questions") or [])),
-        "detail": store.session_detail(s),
+        "show_answers": bool(show),
+        "detail": store.session_detail(s) if show else [],
     }
 
 
@@ -241,6 +259,7 @@ def monitor(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_ad
             {
                 "participant": s.get("participant"),
                 "unit": s.get("unit", ""),
+                "id_number": s.get("id_number", ""),
                 "answered": len(answers),
                 "total": total,
                 "current_score": score,
@@ -297,9 +316,9 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Phong thi", room.get("name", ""), "Ma", room.get("code", ""), "Mon", room.get("subject", "")])
-    w.writerow(["Hang", "Thi sinh", "Don vi", "Diem", "Tong", "Da lam", "Vi pham tab", "So lan vao", "Da nop"])
+    w.writerow(["Hang", "Thi sinh", "Don vi", "So CCCD", "Diem", "Tong", "Da lam", "Vi pham tab", "So lan vao", "Da nop"])
     for i, r in enumerate(ranking, start=1):
-        w.writerow([i, r["participant"], r.get("unit", ""), r["score"], r["total"], r["answered"], r["violations"], r.get("joins", 1), "Co" if r["submitted"] else "Chua"])
+        w.writerow([i, r["participant"], r.get("unit", ""), r.get("id_number", ""), r["score"], r["total"], r["answered"], r["violations"], r.get("joins", 1), "Co" if r["submitted"] else "Chua"])
     return PlainTextResponse(buf.getvalue(), media_type="text/csv; charset=utf-8")
 
 

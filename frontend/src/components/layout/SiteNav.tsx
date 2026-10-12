@@ -7,13 +7,12 @@ import youthUnionLogo from '../../assets/ho_chi_minh_communist_youth_union.png';
 
 const LINKS = [
   { to: '/', label: 'Trang chủ', end: true },
-  { to: '/gioi-thieu', label: 'Giới thiệu' },
-  { to: '/luyen-thi', label: 'Luyện thi' },
-  { to: '/phong-thi', label: 'Phòng thi' },
-  { to: '/lien-he', label: 'Liên hệ' },
+  { to: '/luyen-thi', label: 'Ôn luyện' },
+  { to: '/phong-thi', label: 'Tham gia kiểm tra' },
+  { to: '/gioi-thieu', label: 'Hướng dẫn' },
 ];
 
-/** Thanh điều hướng chung: Trang chủ / Giới thiệu / Luyện thi / Phòng thi / Liên hệ. */
+/** Header 2 tang kieu cong an: thanh thuong hieu trang + thanh dieu huong do. */
 export default function SiteNav() {
   const [user, setUser] = useState(currentUser());
   const [open, setOpen] = useState(false);
@@ -44,118 +43,142 @@ export default function SiteNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#8B0000] shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="flex items-center gap-3 cursor-pointer select-none"
-        >
-          <img src={cybersecurityLogo} alt="Cục An ninh mạng" className="h-10 w-auto object-contain" />
-          <img src={youthUnionLogo} alt="Đoàn TNCS Hồ Chí Minh" className="h-10 w-auto object-contain" />
-          <span className="font-bold text-base md:text-lg tracking-wider text-white uppercase ml-1 drop-shadow-sm whitespace-nowrap">
-            CỤC AN NINH MẠNG
-          </span>
-        </button>
-
-        <nav className="hidden md:flex items-center gap-1">
-          {LINKS.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              className={({ isActive }) =>
-                `px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                  isActive ? 'bg-white/20 text-white' : 'text-white/90 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
-          {user?.role === 'admin' && (
-            <button
-              type="button"
-              onClick={() => navigate('/admin')}
-              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4AF37] text-[#8B0000] hover:bg-[#E5C158] cursor-pointer"
-            >
-              <ShieldCheck size={14} /> Quản trị
-            </button>
-          )}
-          {user ? (
-            <div className="ml-2 flex items-center gap-2 text-xs text-white">
-              <button
-                type="button"
-                onClick={() => navigate('/profile')}
-                className="font-bold hover:underline cursor-pointer"
-                title="Xem hồ sơ"
-              >
-                {user.username}
-              </button>
-              <button
-                type="button"
-                onClick={doLogout}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white cursor-pointer"
-                title="Đăng xuất"
-              >
-                <LogOut size={14} />
-              </button>
-            </div>
-          ) : (
-            <NavLink
-              to="/dang-nhap"
-              className="ml-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white/15 text-white hover:bg-white/25 transition-colors"
-            >
-              Đăng nhập
-            </NavLink>
-          )}
-        </nav>
-
-        <button
-          type="button"
-          className="md:hidden p-2 rounded-lg hover:bg-white/10 text-white cursor-pointer"
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Thực đơn"
-        >
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
+    <header className="sticky top-0 z-40 shadow-md">
+      {/* Tang 1: thuong hieu (nen trang) */}
+      <div className="bg-white border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2.5 cursor-pointer select-none text-left"
+          >
+            <img src={cybersecurityLogo} alt="Cục An ninh mạng" className="h-11 md:h-12 w-auto object-contain shrink-0" />
+            <span className="leading-tight">
+              <span className="block text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Bộ Công an</span>
+              <span className="block text-sm md:text-base font-extrabold tracking-wide text-primary uppercase">Cục An ninh mạng</span>
+              <span className="block text-[9px] md:text-[10px] font-medium tracking-wider text-slate-500 uppercase">Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản</span>
+            </span>
+          </button>
+          <div className="hidden sm:flex items-center gap-2.5 text-right shrink-0">
+            <span className="leading-tight">
+              <span className="block text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Đoàn TNCS Hồ Chí Minh</span>
+              <span className="block text-sm font-extrabold tracking-wide text-primary uppercase">Cục An ninh mạng</span>
+            </span>
+            <img src={youthUnionLogo} alt="Đoàn TNCS Hồ Chí Minh" className="h-11 md:h-12 w-auto object-contain" />
+          </div>
+        </div>
       </div>
-      {open && (
-        <nav className="md:hidden border-t border-white/20 px-4 py-2 flex flex-col gap-1 bg-[#8B0000]">
-          {LINKS.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `px-3 py-2.5 rounded-lg text-sm font-semibold ${isActive ? 'bg-white/20 text-white' : 'text-white/90'}`
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
-          {user?.role === 'admin' && (
-            <NavLink to="/admin" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold bg-[#D4AF37] text-[#8B0000]">
-              Quản trị viên
-            </NavLink>
-          )}
-          {user ? (
-            <>
-              <NavLink to="/profile" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white">
-                Hồ sơ ({user.username} · {user.role})
+
+      {/* Tang 2: thanh dieu huong (nen do) */}
+      <div className="bg-primary">
+        <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-2">
+          <nav className="hidden md:flex items-center gap-1 h-full">
+            {LINKS.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.end}
+                className={({ isActive }) =>
+                  `relative h-11 px-4 flex items-center text-[12px] font-bold uppercase tracking-wider transition-colors ${
+                    isActive ? 'text-white' : 'text-white/75 hover:text-white'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {l.label}
+                    <span className={`absolute left-3 right-3 bottom-0 h-[3px] rounded-t bg-gold transition-opacity ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+                  </>
+                )}
               </NavLink>
-              <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white/80">
-                Đăng xuất
+            ))}
+          </nav>
+
+          <div className="hidden md:flex items-center gap-2">
+            {user?.role === 'admin' && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin/rooms')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-gold text-primary-deep hover:bg-gold-light cursor-pointer"
+              >
+                <ShieldCheck size={13} /> Quản trị
               </button>
-            </>
-          ) : (
-            <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold bg-[#D4AF37] text-[#8B0000]">
-              Đăng nhập
-            </NavLink>
-          )}
-        </nav>
-      )}
+            )}
+            {user ? (
+              <div className="flex items-center gap-1.5 text-[11px] text-white">
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile')}
+                  className="font-bold hover:underline cursor-pointer px-1"
+                  title="Xem hồ sơ"
+                >
+                  {user.username}
+                </button>
+                <button
+                  type="button"
+                  onClick={doLogout}
+                  className="p-1.5 rounded-md hover:bg-white/15 text-white cursor-pointer"
+                  title="Đăng xuất"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <NavLink
+                to="/dang-nhap"
+                className="px-3 py-1.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-white/15 text-white hover:bg-white/25 transition-colors"
+              >
+                Đăng nhập
+              </NavLink>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="md:hidden p-2 rounded-lg hover:bg-white/10 text-white cursor-pointer"
+            onClick={() => setOpen((o) => !o)}
+            aria-label="Thực đơn"
+          >
+            {open ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+        {open && (
+          <nav className="md:hidden border-t border-white/20 px-4 py-2 flex flex-col gap-1 bg-primary-dark">
+            {LINKS.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.end}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `px-3 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider ${isActive ? 'bg-white/20 text-white' : 'text-white/80'}`
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+            {user?.role === 'admin' && (
+              <NavLink to="/admin/rooms" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-xs font-extrabold uppercase tracking-wider bg-gold text-primary-deep">
+                Quản trị
+              </NavLink>
+            )}
+            {user ? (
+              <>
+                <NavLink to="/profile" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-xs font-semibold text-white">
+                  Hồ sơ ({user.username} · {user.role})
+                </NavLink>
+                <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-xs font-semibold text-white/80">
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-xs font-extrabold uppercase tracking-wider bg-gold text-primary-deep">
+                Đăng nhập
+              </NavLink>
+            )}
+          </nav>
+        )}
+      </div>
     </header>
   );
 }

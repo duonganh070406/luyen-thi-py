@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2 } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
@@ -11,13 +11,13 @@ import {
 } from '../services/api.ts';
 
 const TABS = [
-  { id: 'bank', label: 'Ngân hàng đề + Import' },
-  { id: 'rooms', label: 'Phòng thi + Giám sát' },
-  { id: 'units', label: 'Quản lý đơn vị' },
-  { id: 'reports', label: 'Báo lỗi' },
+  { id: 'bank', label: 'Ngân hàng câu hỏi' },
+  { id: 'rooms', label: 'Kỳ kiểm tra' },
+  { id: 'reports', label: 'Phản ánh câu hỏi' },
+  { id: 'units', label: 'Đơn vị' },
+  { id: 'users', label: 'Tài khoản' },
   { id: 'ml', label: 'ML độ khó' },
   { id: 'contact', label: 'Liên hệ' },
-  { id: 'users', label: 'Tài khoản' },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
@@ -25,7 +25,7 @@ const TAB_IDS = TABS.map((t) => t.id);
 export default function AdminPage() {
   const navigate = useNavigate();
   const { tab: tabParam } = useParams();
-  const tab = TAB_IDS.includes(tabParam ?? '') ? tabParam! : 'bank';
+  const tab = TAB_IDS.includes(tabParam ?? '') ? tabParam! : 'rooms';
   const setTab = (id: string) => navigate(`/admin/${id}`);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [subject, setSubject] = useState('');
@@ -48,26 +48,31 @@ export default function AdminPage() {
   }, [navigate, reloadSubjects]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 font-serif italic">Quản trị viên</h1>
-      <p className="text-xs text-slate-500 mt-1 mb-4">Import đề Excel/CSV · Tạo phòng thi · Giám sát trực tiếp · Bảng xếp hạng · Báo cáo.</p>
-      <div className="flex flex-wrap gap-2 mb-5">
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <h1 className="text-xl font-extrabold text-primary uppercase tracking-wide">Quản trị hệ thống</h1>
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-1 mt-2 border-b border-slate-200">
         {TABS.map((t) => (
           <button
             key={t.id} type="button" onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${tab === t.id ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            className={`relative pb-2.5 pt-1 px-0.5 text-[13px] cursor-pointer transition-colors ${
+              tab === t.id ? 'text-primary font-extrabold' : 'text-slate-500 font-medium hover:text-slate-800'
+            }`}
           >
             {t.label}
+            <span className={`absolute left-0 right-0 -bottom-px h-[2.5px] rounded-t bg-primary transition-opacity ${tab === t.id ? 'opacity-100' : 'opacity-0'}`} />
           </button>
         ))}
         <div className="flex-1" />
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
-          Bộ câu hỏi:
-          <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-xl border border-slate-200 px-2.5 py-2 text-xs outline-none">
-            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
+        {(tab === 'reports' || tab === 'ml') && (
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 pb-2">
+            Bộ câu hỏi:
+            <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none bg-white">
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+        )}
       </div>
+      <div className="pt-4">
       {tab === 'bank' && <BankTab subjects={subjects} onChanged={(id) => { reloadSubjects(); if (id) setSubject(id); }} />}
       {tab === 'rooms' && <RoomsTab subjects={subjects} />}
       {tab === 'units' && <UnitsTab />}
@@ -75,6 +80,7 @@ export default function AdminPage() {
       {tab === 'ml' && subject && <MlTab key={`ml-${subject}`} subject={subject} />}
       {tab === 'contact' && <ContactTab />}
       {tab === 'users' && <UsersTab />}
+      </div>
     </div>
   );
 }
@@ -301,13 +307,13 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
                   </span>
                 ))}
               </div>
-              <div className="mt-1"><span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">{q.topic}</span></div>
+              <div className="mt-1"><span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{q.topic}</span></div>
             </div>
           ))}
         </div>
 
         <div className="flex gap-2">
-          <button type="button" onClick={doSavePreview} disabled={busy || !pv.name.trim()} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
+          <button type="button" onClick={doSavePreview} disabled={busy || !pv.name.trim()} className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50">
             {busy ? 'Đang lưu...' : `Lưu bộ đề (${pv.items.length} câu)`}
           </button>
           <button type="button" onClick={() => setPv(null)} className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold cursor-pointer hover:bg-slate-50">
@@ -330,7 +336,7 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
           <button type="button" onClick={() => void loadBank(bankId)} disabled={!dirty || busy} className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 disabled:opacity-40">
             Hủy thay đổi
           </button>
-          <button type="button" onClick={doSaveBank} disabled={!dirty || busy} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-40">
+          <button type="button" onClick={doSaveBank} disabled={!dirty || busy} className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-40">
             {busy ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </div>
@@ -339,8 +345,8 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
 
         <div className="flex items-center gap-2 mb-3">
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Tìm câu hỏi / chủ đề..."
-            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
-          <button type="button" onClick={() => setShowAdd((s) => !s)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer">
+            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary" />
+          <button type="button" onClick={() => setShowAdd((s) => !s)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer">
             <Plus size={14} /> Thêm câu
           </button>
         </div>
@@ -374,13 +380,13 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
                       ))}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5 items-center">
-                      <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold">{q.topic}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{q.topic}</span>
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{DIFF_LABEL[q.difficulty] ?? q.difficulty}</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-1">
                     <button type="button" onClick={() => { setEditingId(q.id); setEditForm(stagedToForm(q)); }}
-                      className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer" title="Sửa">
+                      className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 cursor-pointer" title="Sửa">
                       <Pencil size={15} />
                     </button>
                     <button type="button" onClick={() => doDeleteStaged(q.id)}
@@ -402,13 +408,13 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
   /* ---------- Man hinh danh sach bo de ---------- */
   return (
     <div>
-      <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 mb-4">
-        <h2 className="flex items-center gap-2 font-bold text-sm text-indigo-900 mb-1"><Upload size={15} /> Import file Excel / CSV</h2>
-        <p className="text-xs text-indigo-800/80 mb-3">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 mb-4">
+        <h2 className="flex items-center gap-2 font-bold text-sm text-primary-deep mb-1"><Upload size={15} /> Import file Excel / CSV</h2>
+        <p className="text-xs text-primary-deep/80 mb-3">
           Header: <b>Câu hỏi | A | B | C | D | E | Đáp án | Độ khó | Chủ đề | Giải thích</b> ·
           Tên bộ đề tự lấy theo <b>tên file</b> · Chỉ lưu vào database khi bạn bấm <b>Lưu bộ đề</b>.
         </p>
-        <label className="inline-block px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">
+        <label className="inline-block px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark">
           {busy ? 'Đang đọc file...' : 'Chọn file .xlsx / .csv'}
           <input type="file" accept=".xlsx,.xlsm,.csv" className="hidden" onChange={(e) => { void doPreview(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
@@ -422,11 +428,11 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
           {subjects.map((s) => (
             <button
               key={s.id} type="button" onClick={() => openBank(s.id)}
-              className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-2 hover:border-indigo-300 hover:bg-indigo-50/40 cursor-pointer text-left transition-colors"
+              className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-2 hover:border-primary hover:bg-primary/5 cursor-pointer text-left transition-colors"
             >
               <span className="font-bold text-slate-800 flex-1 text-sm">{s.name}</span>
               <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{counts[s.id] ?? '…'} câu</span>
-              <span className="text-indigo-600 font-bold">Mở →</span>
+              <span className="text-primary font-bold">Mở →</span>
             </button>
           ))}
           {subjects.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có bộ câu hỏi nào. Hãy import file ở trên.</p>}
@@ -464,7 +470,7 @@ function QuestionForm({ form, setForm, onSave, saveLabel, onCancel }: {
       <input value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })} placeholder="Giải thích"
         className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none" />
       <div className="sm:col-span-2 flex gap-2">
-        <button type="button" onClick={onSave} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer">{saveLabel}</button>
+        <button type="button" onClick={onSave} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold cursor-pointer">{saveLabel}</button>
         <button type="button" onClick={onCancel} className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold cursor-pointer">Hủy</button>
       </div>
     </div>
@@ -515,9 +521,9 @@ function UnitsTab() {
             value={newUnit}
             onChange={(e) => setNewUnit(e.target.value)}
             placeholder="Tên đơn vị (vd: Khoa Công nghệ)"
-            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary"
           />
-          <button type="button" onClick={doAdd} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">
+          <button type="button" onClick={doAdd} className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark">
             Thêm
           </button>
         </div>
@@ -582,14 +588,14 @@ function ContactTab() {
       <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
       <input
         value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vd: hotro@a05.gov.vn"
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 mb-3"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary mb-3"
       />
       <label className="block text-xs font-bold text-slate-700 mb-1">Điện thoại</label>
       <input
         value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="vd: 0123 456 789"
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 mb-4"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary mb-4"
       />
-      <button type="button" onClick={doSave} disabled={busy} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
+      <button type="button" onClick={doSave} disabled={busy} className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50">
         {busy ? 'Đang lưu...' : 'Lưu liên hệ'}
       </button>
     </div>
@@ -635,18 +641,18 @@ function UsersTab() {
         <div className="grid sm:grid-cols-3 gap-2 mb-3">
           <input
             value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đăng nhập"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <input
             type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Mật khẩu"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary"
           />
-          <select value={role} onChange={(e) => setRole(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary">
             <option value="user">Người dùng (user)</option>
             <option value="admin">Quản trị viên (admin)</option>
           </select>
         </div>
-        <button type="button" onClick={doCreate} disabled={busy} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
+        <button type="button" onClick={doCreate} disabled={busy} className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50">
           {busy ? 'Đang tạo...' : 'Tạo tài khoản'}
         </button>
       </div>
@@ -660,7 +666,7 @@ function UsersTab() {
             <div key={u.username} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center gap-2">
               <b className="flex-1 text-slate-800">{u.username}</b>
               {u.role === 'admin'
-                ? <span className="px-2 py-0.5 rounded-full bg-[#8B0000]/10 text-[#8B0000] font-bold">admin</span>
+                ? <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">admin</span>
                 : <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">user</span>}
             </div>
           ))}
@@ -671,27 +677,89 @@ function UsersTab() {
   );
 }
 
-/* ---------------- Phong thi + Giam sat ---------------- */
+/* ---------------- Ky kiem tra ---------------- */
+
+function fmtRoomTime(ts: number): string {
+  try {
+    const d = new Date(Number(ts || 0) * 1000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  } catch {
+    return '';
+  }
+}
 
 function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   const [rooms, setRooms] = useState<any[]>([]);
-  const [units, setUnits] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, { total: number; submitted: number }>>({});
+  const [subjCounts, setSubjCounts] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState('');
-  const [form, setForm] = useState({ name: '', subject: '', unit: '', topics: '', difficulty: 'Hon hop', count: 10, time_limit: 30, max_violations: 3, shuffle_questions: true, shuffle_options: true });
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    name: '', subject: '', topics: [] as string[], difficulty: 'Hon hop',
+    count: 20, time_limit: 30, max_violations: 3,
+    shuffle_questions: true, shuffle_options: true, auto_submit: false, show_answers: true,
+  });
+  const [bankItems, setBankItems] = useState<any[]>([]);
   const [monitorId, setMonitorId] = useState('');
   const [monitor, setMonitor] = useState<any>(null);
   const [ranking, setRanking] = useState<any[]>([]);
   const [editScores, setEditScores] = useState<Record<string, number>>({});
 
-  const reload = () => listRooms().then((r) => setRooms(r.rooms || [])).catch((e) => setMsg(String(e)));
-  const reloadUnits = () => getUnits().then((r) => setUnits(r.units || [])).catch(() => setUnits([]));
+  const reload = useCallback(() => {
+    listRooms().then(async (r) => {
+      const list = r.rooms || [];
+      setRooms(list);
+      // dem thi sinh tung ky de hien "3 (2)"
+      const entries = await Promise.all(
+        list.map(async (rm: any) => {
+          try {
+            const m = await getMonitor(rm.id);
+            const parts = m.participants || [];
+            return [rm.id, { total: parts.length, submitted: parts.filter((p: any) => p.submitted).length }] as const;
+          } catch {
+            return [rm.id, { total: 0, submitted: 0 }] as const;
+          }
+        })
+      );
+      setStats(Object.fromEntries(entries));
+    }).catch((e) => setMsg(String(e)));
+  }, []);
 
+  useEffect(() => { reload(); }, [reload]);
+
+  // dem so cau moi bo de (hien trong select)
   useEffect(() => {
-    reload();
-    reloadUnits();
-    if (subjects.length > 0 && !form.subject) setForm((f) => ({ ...f, subject: subjects[0].id }));
+    let stop = false;
+    (async () => {
+      const entries = await Promise.all(
+        subjects.map(async (s) => {
+          try {
+            const r = await getBank(s.id);
+            return [s.id, r.total ?? (r.items || []).length] as const;
+          } catch {
+            return [s.id, 0] as const;
+          }
+        })
+      );
+      if (!stop) {
+        setSubjCounts(Object.fromEntries(entries));
+        setForm((f) => (!f.subject && subjects.length > 0 ? { ...f, subject: subjects[0].id, topics: [] } : f));
+      }
+    })();
+    return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjects]);
+
+  // nap bank cua bo dang chon de lay chu de + dem cau theo lua chon
+  useEffect(() => {
+    if (!form.subject) { setBankItems([]); return; }
+    let stop = false;
+    getBank(form.subject).then((r) => {
+      if (!stop) setBankItems(r.items || []);
+    }).catch(() => { if (!stop) setBankItems([]); });
+    return () => { stop = true; };
+  }, [form.subject]);
 
   // poll giám sát liên tục
   useEffect(() => {
@@ -712,26 +780,51 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     return () => { stop = true; };
   }, [monitorId]);
 
+  const topicCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const q of bankItems) {
+      const t = String((q as any)?.topic || 'Chung').trim() || 'Chung';
+      m.set(t, (m.get(t) || 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'vi'));
+  }, [bankItems]);
+
+  const selectedCount = form.topics.length === 0
+    ? bankItems.length
+    : bankItems.filter((q) => form.topics.includes(String((q as any)?.topic || 'Chung').trim() || 'Chung')).length;
+
+  const toggleTopic = (t: string) => {
+    setForm((f) => ({
+      ...f,
+      topics: f.topics.includes(t) ? f.topics.filter((x) => x !== t) : [...f.topics, t],
+    }));
+  };
+
   const doCreate = async () => {
+    if (!form.subject) { setMsg('Cần chọn bộ câu hỏi.'); return; }
+    setBusy(true);
     try {
-      if (!form.subject) { setMsg('Cần chọn bộ câu hỏi.'); return; }
-      const selectedUnit = units.find((u) => (typeof u === 'string' ? u : u?.name) === form.unit);
       const r = await createRoom({
-        name: form.name.trim() || 'Phòng thi',
+        name: form.name.trim() || 'Kỳ kiểm tra',
         subject: form.subject,
-        unit: selectedUnit?.name || '',
-        topics: form.topics.split(',').map((s) => s.trim()).filter(Boolean),
+        unit: '',
+        topics: form.topics,
         difficulty: form.difficulty,
-        count: Number(form.count) || 10,
+        count: Number(form.count) || 20,
         time_limit: Number(form.time_limit) || 30,
         shuffle_questions: form.shuffle_questions,
         shuffle_options: form.shuffle_options,
         max_violations: Number(form.max_violations) || 3,
+        auto_submit: form.auto_submit,
+        show_answers: form.show_answers,
       });
-      setMsg(`Đã tạo phòng "${r.room.name}" — mã: ${r.room.code}`);
+      setMsg(`Đã tạo kỳ "${r.room.name}" — mã: ${r.room.code}`);
+      setForm((f) => ({ ...f, name: '', topics: [] }));
       reload();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -739,148 +832,198 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     exportRoomCsv(roomId);
   };
 
+  const DIFFS = ['Hon hop', 'De', 'Trung binh', 'Kho'];
+
   return (
     <div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
-        <h2 className="font-bold text-sm text-slate-800 mb-3">Tạo phòng thi online</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Tên phòng</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="vd: Thi giữa kỳ"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+      {/* Tao ky kiem tra */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
+        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-4">
+          <span className="w-1 h-4 rounded bg-primary inline-block" /> Tạo kỳ kiểm tra
+        </h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Tên kỳ kiểm tra</label>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ví dụ: Kiểm tra nhận thức quý IV/2026"
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Bộ câu hỏi</label>
-            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, topics: [] })} className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50">
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name} ({subjCounts[s.id] ?? '…'} câu)</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Đơn vị</label>
-            <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
-              <option value="">-- Chọn đơn vị --</option>
-              {units.map((u: any, idx: number) => {
-                const label = typeof u === 'string' ? u : (u?.name ?? '');
-                return <option key={label || idx} value={label}>{label}</option>;
+            <label className="block text-xs font-bold text-slate-700 mb-1">Mức độ</label>
+            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50">
+              {DIFFS.map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">Chủ đề (để trống = tất cả)</label>
+          {topicCounts.length === 0 ? (
+            <p className="text-[11px] text-slate-400">Bộ câu hỏi chưa có chủ đề nào.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {topicCounts.map(([t, n]) => {
+                const on = form.topics.includes(t);
+                return (
+                  <button
+                    key={t} type="button" onClick={() => toggleTopic(t)}
+                    className={`px-2.5 py-1.5 rounded-md border text-[11px] cursor-pointer transition-colors ${
+                      on ? 'border-primary bg-primary text-white font-bold' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/50'
+                    }`}
+                  >
+                    {t} ({n})
+                  </button>
+                );
               })}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Chủ đề</label>
-            <input value={form.topics} onChange={(e) => setForm({ ...form, topics: e.target.value })} placeholder="cách nhau dấu phẩy, trống = hỗn hợp"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Độ khó</label>
-            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
-              {['Hon hop', 'De', 'Trung binh', 'Kho'].map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
-            </select>
-          </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-3 mb-1.5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Số câu</label>
             <input type="number" min={1} max={200} value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Thời gian (phút)</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Thời gian làm bài (phút)</label>
             <input type="number" min={1} max={300} value={form.time_limit} onChange={(e) => setForm({ ...form, time_limit: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Giới hạn chuyển tab</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Số lần rời màn hình cho phép</label>
             <input type="number" min={1} max={20} value={form.max_violations} onChange={(e) => setForm({ ...form, max_violations: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-100 text-xs text-slate-600">
-          <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.shuffle_questions} onChange={(e) => setForm({ ...form, shuffle_questions: e.target.checked })} className="accent-indigo-600" /> Trộn đề</label>
-          <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.shuffle_options} onChange={(e) => setForm({ ...form, shuffle_options: e.target.checked })} className="accent-indigo-600" /> Đảo đáp án</label>
+        <p className="text-[11px] text-slate-400 mb-3">{bankItems.length} câu hiện có trong lựa chọn: {selectedCount}</p>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-slate-600">
+          <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_questions} onChange={(e) => setForm({ ...form, shuffle_questions: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Trộn thứ tự câu hỏi</label>
+          <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_options} onChange={(e) => setForm({ ...form, shuffle_options: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Đảo thứ tự phương án</label>
+          <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.show_answers} onChange={(e) => setForm({ ...form, show_answers: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Cho thí sinh xem đáp án sau khi nộp</label>
           <div className="flex-1" />
-          <button type="button" onClick={doCreate} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700">Tạo phòng</button>
+          <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.auto_submit} onChange={(e) => setForm({ ...form, auto_submit: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Tự thu bài khi vượt số lần</label>
+          <button type="button" onClick={doCreate} disabled={busy} className="px-5 py-2.5 rounded-md bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50 flex items-center gap-1.5">
+            <Plus size={14} /> {busy ? 'Đang tạo...' : 'Tạo kỳ kiểm tra'}
+          </button>
         </div>
       </div>
 
-      {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
+      {msg && <p className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3">{msg}</p>}
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="font-bold text-sm text-slate-800 mb-2">Danh sách phòng ({rooms.length})</h2>
-          <div className="flex flex-col gap-2 max-h-96 overflow-auto">
-            {rooms.map((r) => (
-              <div key={r.id} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <b className="text-slate-800">{r.name}</b>
-                  <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{r.code}</span>
-                  <span className={`px-2 py-0.5 rounded-full font-bold ${r.status === 'open' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
-                    {r.status === 'open' ? 'Đang mở' : 'Đã đóng'}
-                  </span>
-                </div>
-                <div className="text-slate-500 mt-1">{r.subject} · {r.unit ? r.unit : ''} · {r.count} câu · {r.time_limit} phút · {DIFF_LABEL[r.difficulty] ?? r.difficulty}</div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  <button type="button" onClick={() => setMonitorId(r.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-bold cursor-pointer">
-                    <Monitor size={12} /> Giám sát
-                  </button>
-                  {r.status === 'open' && (
-                    <button type="button" onClick={async () => { if (confirm(`Đóng phòng ${r.code}? Tất cả bài sẽ bị thu.`)) { await closeRoom(r.id); reload(); } }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-[11px] font-bold cursor-pointer">
-                      <Lock size={12} /> Đóng + thu bài
-                    </button>
-                  )}
-                  <button type="button" onClick={() => doExport(r.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold cursor-pointer">
-                    <Download size={12} /> Báo cáo CSV
-                  </button>
-                </div>
+      {/* Danh sach ky kiem tra */}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
+        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-3">
+          <span className="w-1 h-4 rounded bg-primary inline-block" /> Danh sách kỳ kiểm tra
+        </h2>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-full text-xs min-w-[760px]">
+            <thead>
+              <tr className="text-slate-400 text-left border-b border-slate-100">
+                <th className="py-2 pr-2 font-semibold">Tên kỳ kiểm tra</th>
+                <th className="py-2 pr-2 font-semibold">Mã</th>
+                <th className="py-2 pr-2 font-semibold">Bộ câu hỏi</th>
+                <th className="py-2 pr-2 font-semibold">Số câu / phút</th>
+                <th className="py-2 pr-2 font-semibold">Thí sinh (đã nộp)</th>
+                <th className="py-2 pr-2 font-semibold">Trạng thái</th>
+                <th className="py-2 pr-2 font-semibold">Tạo lúc</th>
+                <th className="py-2 font-semibold text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.map((r) => {
+                const st = stats[r.id] || { total: 0, submitted: 0 };
+                const open = r.status === 'open';
+                return (
+                  <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                    <td className="py-2.5 pr-2 font-bold text-slate-800">{r.name}</td>
+                    <td className="py-2.5 pr-2 font-mono font-extrabold text-primary">{r.code}</td>
+                    <td className="py-2.5 pr-2 text-slate-600">{r.subject}</td>
+                    <td className="py-2.5 pr-2 text-slate-600">{r.count} / {r.time_limit}</td>
+                    <td className="py-2.5 pr-2 text-slate-600">{st.total} ({st.submitted})</td>
+                    <td className="py-2.5 pr-2">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${open ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-slate-100 text-slate-500'}`}>
+                        {open ? 'Đang diễn ra' : 'Đã kết thúc'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-2 text-slate-500 whitespace-nowrap">{fmtRoomTime(r.created_at)}</td>
+                    <td className="py-2.5">
+                      <div className="flex justify-end gap-1.5">
+                        <button type="button" onClick={() => setMonitorId(r.id)} title="Theo dõi trực tiếp"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                          <Monitor size={12} /> Theo dõi
+                        </button>
+                        {open && (
+                          <button type="button" title="Kết thúc kỳ kiểm tra (thu toàn bộ bài)"
+                            onClick={async () => { if (confirm(`Kết thúc kỳ "${r.name}" (${r.code})? Tất cả bài sẽ bị thu.`)) { await closeRoom(r.id); reload(); } }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                            <Lock size={12} /> Kết thúc
+                          </button>
+                        )}
+                        <button type="button" onClick={() => doExport(r.id)} title="Xuất báo cáo CSV"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                          <Download size={12} /> Báo cáo
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {rooms.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có kỳ kiểm tra nào.</p>}
+        </div>
+      </div>
+
+      {/* Giam sat truc tiep + BXH */}
+      {monitor && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+          <h2 className="font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-3">
+            Giám sát trực tiếp: {monitor.room?.name} ({monitor.room?.code}) — {monitor.total} thí sinh
+          </h2>
+          <div className="flex flex-col gap-1.5 max-h-56 overflow-auto mb-4">
+            {monitor.participants?.map((p: any) => (
+              <div key={p.participant} className="text-xs rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <b className="flex-1 truncate min-w-[120px]">{p.participant}{p.unit ? ` · ${p.unit}` : ''}{p.id_number ? ` · ${p.id_number}` : ''}</b>
+                <span className="text-slate-500">{p.answered}/{p.total} câu</span>
+                <span className="text-slate-500">điểm hiện tại <b className="text-slate-800">{p.current_score}</b></span>
+                {p.violations > 0 && <span className="text-amber-600 font-bold">rời màn hình ×{p.violations}</span>}
+                {(p.joins ?? 1) > 1 && <span className="text-sky-600 font-bold">vào lại ×{p.joins}</span>}
+                <span className={p.submitted ? 'text-green-600 font-bold' : 'text-slate-400'}>{p.submitted ? 'Đã nộp' : 'Đang làm'}</span>
               </div>
             ))}
-            {rooms.length === 0 && <p className="text-xs text-slate-400">Chưa có phòng thi.</p>}
+          </div>
+          <h3 className="font-bold text-xs text-slate-700 mb-1.5">Bảng xếp hạng (sửa được)</h3>
+          <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
+            {ranking.map((r: any, i: number) => (
+              <div key={r.participant} className="text-xs rounded-lg border border-slate-100 px-3 py-2 flex items-center gap-2">
+                <span className="font-bold text-slate-400 w-6">{i + 1}</span>
+                <b className="flex-1 truncate">{r.participant}</b>
+                <span>{r.score}/{r.total}</span>
+                <input
+                  type="number" min={0} max={r.total}
+                  value={editScores[r.participant] ?? r.score}
+                  onChange={(e) => setEditScores((s) => ({ ...s, [r.participant]: Number(e.target.value) }))}
+                  className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-xs outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={async () => { await editScore(monitor.room.id, r.participant, editScores[r.participant] ?? r.score); const lb = await getLeaderboard(monitor.room.id).catch(() => null); if (lb) setRanking(lb.ranking || []); }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer"
+                >
+                  <Pencil size={11} /> Sửa
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="font-bold text-sm text-slate-800 mb-2">
-            {monitor ? `Giám sát trực tiếp: ${monitor.room?.name} (${monitor.room?.code}) — ${monitor.total} người tham gia` : 'Chọn phòng để giám sát (tự làm mới 3s)'}
-          </h2>
-          {monitor && (
-            <>
-              <div className="flex flex-col gap-1.5 max-h-56 overflow-auto mb-3">
-                {monitor.participants?.map((p: any) => (
-                  <div key={p.participant} className="text-xs rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 flex items-center gap-2">
-                    <b className="flex-1 truncate">{p.participant}{p.unit ? ` · ${p.unit}` : ''}</b>
-                    <span>{p.answered}/{p.total} câu</span>
-                    <span>điểm hiện tại <b>{p.current_score}</b></span>
-                    {p.violations > 0 && <span className="text-amber-600 font-bold">tab ×{p.violations}</span>}
-                    {(p.joins ?? 1) > 1 && <span className="text-sky-600 font-bold">vào lại ×{p.joins}</span>}
-                    <span className={p.submitted ? 'text-green-600 font-bold' : 'text-slate-400'}>{p.submitted ? 'Đã nộp' : 'Đang làm'}</span>
-                  </div>
-                ))}
-              </div>
-              <h3 className="font-bold text-xs text-slate-700 mb-1.5">Bảng xếp hạng (sửa được)</h3>
-              <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
-                {ranking.map((r: any, i: number) => (
-                  <div key={r.participant} className="text-xs rounded-xl border border-slate-100 px-3 py-2 flex items-center gap-2">
-                    <span className="font-bold text-slate-400 w-6">{i + 1}</span>
-                    <b className="flex-1 truncate">{r.participant}</b>
-                    <span>{r.score}/{r.total}</span>
-                    <input
-                      type="number" min={0} max={r.total}
-                      value={editScores[r.participant] ?? r.score}
-                      onChange={(e) => setEditScores((s) => ({ ...s, [r.participant]: Number(e.target.value) }))}
-                      className="w-16 rounded-lg border border-slate-200 px-1.5 py-1 text-xs outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => { await editScore(monitor.room.id, r.participant, editScores[r.participant] ?? r.score); const lb = await getLeaderboard(monitor.room.id).catch(() => null); if (lb) setRanking(lb.ranking || []); }}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer"
-                    >
-                      <Pencil size={11} /> Sửa
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -947,15 +1090,15 @@ function MlTab({ subject }: { subject: string }) {
               <div className="flex-1">
                 <div className="font-semibold text-slate-700">{q.question}</div>
                 <div className="text-slate-500 mt-1">Hiện tại: <b>{DIFF_LABEL[q.difficulty] ?? q.difficulty}</b>
-                  {r && <> · ML gợi ý: <b className="text-indigo-600">{DIFF_LABEL[r.suggested] ?? r.suggested}</b> (sai {r.wrong_rate === null ? '?' : Math.round(r.wrong_rate * 100) + `%`}/{r.attempts} lượt, tin cậy {r.confidence})</>}
+                  {r && <> · ML gợi ý: <b className="text-primary">{DIFF_LABEL[r.suggested] ?? r.suggested}</b> (sai {r.wrong_rate === null ? '?' : Math.round(r.wrong_rate * 100) + `%`}/{r.attempts} lượt, tin cậy {r.confidence})</>}
                 </div>
               </div>
-              <button type="button" onClick={() => check(q)} className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold cursor-pointer">Đánh giá</button>
+              <button type="button" onClick={() => check(q)} className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-bold cursor-pointer">Đánh giá</button>
               {r && r.suggested !== q.difficulty && (
                 <button
                   type="button"
                   onClick={async () => { await updateBankQuestion(subject, q.id, { difficulty: r.suggested }); setItems((list) => list.map((x) => (x.id === q.id ? { ...x, difficulty: r.suggested } : x))); }}
-                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-primary text-white text-[11px] font-bold cursor-pointer"
                 >
                   Áp dụng
                 </button>

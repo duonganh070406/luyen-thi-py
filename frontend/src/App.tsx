@@ -11,6 +11,7 @@ import { useNavigate, useParams, useLocation, Routes, Route, Navigate } from 're
 import './registerStrategies.ts';
 
 import SiteNav from './components/layout/SiteNav.tsx';
+import SiteFooter from './components/layout/SiteFooter.tsx';
 import HomePage from './pages/HomePage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
 import ContactPage from './pages/ContactPage.tsx';
@@ -366,8 +367,11 @@ function AppContent() {
 }
 
 export default function App() {
+  const location = useLocation();
+  // Khung lam viec mon hoc (/subject/...) tu quan ly chieu cao + khong can footer
+  const isWorkspace = location.pathname.startsWith('/subject');
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[#F4F5F7] flex flex-col">
       <SiteNav />
       <div className="flex-1 min-h-0 flex flex-col">
         <Routes>
@@ -389,6 +393,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      {!isWorkspace && <SiteFooter />}
     </div>
   );
 }

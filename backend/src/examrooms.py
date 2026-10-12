@@ -144,6 +144,8 @@ def create_room(payload: dict[str, Any], created_by: str) -> dict[str, Any]:
         "created_by": created_by,
         "created_at": int(time.time()),
         "max_violations": int(payload.get("max_violations") or 3),
+        "auto_submit": bool(payload.get("auto_submit", False)),
+        "show_answers": bool(payload.get("show_answers", True)),
     }
     room["code"] = str(room["code"]).strip().upper()
     with store.session() as conn:
@@ -256,7 +258,7 @@ def is_expired(room: dict[str, Any], sess: dict[str, Any]) -> bool:
     return int(time.time()) > int(deadline)
 
 
-def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
+def join_room(code: str, participant: str, unit: str = "", id_number: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
     room = get_room_by_code(code)
     if not room:
         raise ValueError("Mã phòng thi không tồn tại.")
@@ -264,6 +266,7 @@ def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, An
     if not name:
         raise ValueError("Vui lòng nhập tên để vào thi.")
     unit_name = (unit or "").strip()
+    idn = (id_number or "").strip()
     with _lock_for(room["id"], name):
         s = load_session(room["id"], name)
         if s is not None:
@@ -273,6 +276,8 @@ def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, An
             s["ticket"] = secrets.token_urlsafe(24)
             s["updated_at"] = int(time.time())
             s["unit"] = unit_name
+            if idn:
+                s["id_number"] = idn
             try:
                 s["joins"] = int(s.get("joins") or 1) + 1
             except Exception:
@@ -289,6 +294,7 @@ def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, An
             "room_id": room["id"],
             "participant": name,
             "unit": unit_name,
+            "id_number": idn,
             "ticket": secrets.token_urlsafe(24),
             "questions": questions,
             "answers": {},
@@ -329,6 +335,7 @@ def leaderboard(room_id: str) -> list[dict[str, Any]]:
             {
                 "participant": s.get("participant"),
                 "unit": s.get("unit", ""),
+                "id_number": s.get("id_number", ""),
                 "score": score,
                 "total": total,
                 "answered": len(answers),

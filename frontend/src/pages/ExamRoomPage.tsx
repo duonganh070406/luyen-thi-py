@@ -9,6 +9,8 @@ export default function ExamRoomPage() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
+  const [idNumber, setIdNumber] = useState('');
+  const [showAnswers, setShowAnswers] = useState(true);
   const [units, setUnits] = useState<any[]>([]);
   const [room, setRoom] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -66,7 +68,9 @@ export default function ExamRoomPage() {
           if (r.submitted) {
             setWarn(r.expired
               ? 'Đã hết giờ làm bài — hệ thống tự động thu bài!'
-              : `Bạn đã chuyển tab ${r.violations} lần (đang đếm).`);
+              : r.auto_submitted
+                ? `Bạn đã rời màn hình quá số lần cho phép (${r.violations}/${r.max ?? ''}) — hệ thống đã tự động thu bài!`
+                : `Bạn đã chuyển tab ${r.violations} lần (đang đếm).`);
             void doSubmit(true);
           } else {
             setWarn(`Cảnh báo chống gian lận: phát hiện chuyển tab (${r.violations} lần). Quản trị viên sẽ theo dõi.`);
@@ -91,14 +95,19 @@ export default function ExamRoomPage() {
       setError('Vui lòng nhập họ tên.');
       return;
     }
-    // Thi sinh xac dinh bang ho ten + don vi: bat buoc chon khi da co danh sach
+    // Thi sinh xac dinh bang ho ten + don vi + so CCCD
     if (units.length > 0 && !unit.trim()) {
       setError('Vui lòng chọn đơn vị.');
       return;
     }
+    if (!idNumber.trim()) {
+      setError('Vui lòng nhập số căn cước công dân.');
+      return;
+    }
     try {
-      const r = await joinRoom(code.trim().toUpperCase(), name.trim(), unit.trim());
+      const r = await joinRoom(code.trim().toUpperCase(), name.trim(), unit.trim(), idNumber.trim());
       setRoom(r.room);
+      setShowAnswers(r.show_answers !== false);
       setQuestions(r.questions || []);
       setAnswers(r.answers || {});
       setViolations(r.violations || 0);
@@ -150,6 +159,7 @@ export default function ExamRoomPage() {
       // submit luy thua (idempotent): bai da nop van tra lai detail day du
       const r = await submitRoom(credRef.current.code, credRef.current.participant, credRef.current.ticket);
       setDone({ score: r.score ?? 0, total: r.total ?? questions.length });
+      setShowAnswers(r.show_answers !== false);
       setDetail(r.detail || []);
       const lb = await getLeaderboard(room.id).catch(() => null);
       if (lb) setRanking(lb.ranking || []);
@@ -165,8 +175,9 @@ export default function ExamRoomPage() {
   if (!room) {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
-        <div className="rounded-xl border border-slate-200 bg-white p-7 shadow-xs">
-          <h1 className="text-xl font-bold text-slate-900 mb-6">Vào phòng thi</h1>
+        <div className="rounded-lg border border-slate-200 bg-white p-7 shadow-md">
+          <h1 className="text-base font-extrabold text-primary uppercase tracking-wide mb-1">Tham gia kiểm tra</h1>
+          <p className="text-[11px] text-slate-500 mb-5">Nhập đúng họ tên, đơn vị, số căn cước công dân và mã kỳ kiểm tra.</p>
           <form onSubmit={doJoin} className="flex flex-col gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Họ tên</label>
@@ -174,15 +185,15 @@ export default function ExamRoomPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="vd: Nguyễn Văn A"
-                className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Lựa chọn đơn vị</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Đơn vị công tác</label>
               <select
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
                 <option value="">vd: Đội 1 - Phòng 2</option>
                 {(Array.isArray(units) ? units : []).map((u: any, idx: number) => {
@@ -193,24 +204,34 @@ export default function ExamRoomPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mã phòng thi</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Số căn cước công dân</label>
+              <input
+                value={idNumber}
+                onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                inputMode="numeric"
+                placeholder="vd: 001203004567"
+                className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 font-mono tracking-wider outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mã kỳ kiểm tra</label>
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="vd: XRJ2PQ"
-                className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 font-mono tracking-wider outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 font-mono tracking-wider outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </div>
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
                 {error}
               </p>
             )}
             <button
               type="submit"
-              className="mt-2 w-full py-2.5 rounded-lg bg-[#8B0000] hover:bg-[#700000] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+              className="mt-2 w-full py-2.5 rounded-md bg-primary hover:bg-primary-dark text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
             >
-              <span>&rarr;</span> Vào thi
+              <LogIn size={14} /> Vào thi
             </button>
           </form>
         </div>
@@ -221,10 +242,15 @@ export default function ExamRoomPage() {
   if (done) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="rounded-2xl bg-[#8B0000] text-white p-6 mb-4 text-center shadow-sm">
+        <div className="rounded-2xl bg-primary text-white p-6 mb-4 text-center shadow-sm">
           <h1 className="font-bold text-2xl">Đã nộp bài: {done.score}/{done.total}</h1>
           <p className="text-sm text-white/90 mt-2">Phòng {room.name} · Mã {room.code} · Người tham gia {credRef.current.participant}</p>
         </div>
+        {detail.length === 0 && !showAnswers && (
+          <p className="text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-3 mb-4">
+            Kỳ kiểm tra này không công bố đáp án sau khi nộp. Kết quả của bạn đã được ghi nhận.
+          </p>
+        )}
         {detail.length > 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-4 shadow-sm">
             <h2 className="font-bold text-sm text-slate-800 mb-3">Xem lại bài làm</h2>
@@ -248,7 +274,7 @@ export default function ExamRoomPage() {
               <thead><tr className="text-slate-400 text-left"><th className="py-2">Hạng</th><th>Người tham gia</th><th>Điểm</th><th>Vi phạm</th></tr></thead>
               <tbody>
                 {ranking.map((r: any, i: number) => (
-                  <tr key={r.participant} className={`border-t border-slate-100 ${r.participant === credRef.current.participant ? 'bg-[#8B0000]/5 font-bold' : ''}`}>
+                  <tr key={r.participant} className={`border-t border-slate-100 ${r.participant === credRef.current.participant ? 'bg-primary/5 font-bold' : ''}`}>
                     <td className="py-2">{i + 1}</td><td>{r.participant}</td>
                     <td>{r.score}/{r.total}</td><td>{r.violations}</td>
                   </tr>
@@ -256,7 +282,7 @@ export default function ExamRoomPage() {
               </tbody>
             </table>
           )}
-          <button type="button" onClick={() => navigate('/phong-thi')} className="mt-4 text-xs font-bold text-[#8B0000] cursor-pointer">← Về trang phòng thi</button>
+          <button type="button" onClick={() => navigate('/phong-thi')} className="mt-4 text-xs font-bold text-primary cursor-pointer">← Về trang phòng thi</button>
         </div>
       </div>
     );
@@ -283,7 +309,7 @@ export default function ExamRoomPage() {
               {(q.options || []).map((opt: string, oi: number) => (
                 <button
                   key={oi} type="button" onClick={() => choose(String(q.id), oi)}
-                  className={`text-left px-4 py-3 rounded-xl border text-sm cursor-pointer transition-colors ${(answers as any)[String(q.id)] === oi ? 'border-[#8B0000] bg-[#8B0000]/5 font-bold text-[#8B0000]' : 'border-slate-200 hover:border-[#8B0000]'}`}
+                  className={`text-left px-4 py-3 rounded-xl border text-sm cursor-pointer transition-colors ${(answers as any)[String(q.id)] === oi ? 'border-primary bg-primary/5 font-bold text-primary' : 'border-slate-200 hover:border-primary'}`}
                 >
                   <b className="mr-2">{'ABCDE'[oi]}.</b><MarkdownRenderer content={String(opt)} />
                 </button>
@@ -292,7 +318,7 @@ export default function ExamRoomPage() {
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => doSubmit(false)} className="mt-5 w-full py-4 rounded-2xl bg-[#8B0000] text-white font-bold text-sm hover:bg-[#6B0000] flex items-center justify-center gap-2 cursor-pointer transition-colors">
+      <button type="button" onClick={() => doSubmit(false)} className="mt-5 w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm hover:bg-primary-dark flex items-center justify-center gap-2 cursor-pointer transition-colors">
         <Send size={16} /> Nộp bài
       </button>
     </div>
