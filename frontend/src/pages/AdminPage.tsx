@@ -7,7 +7,7 @@ import {
   updateBankQuestion, previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
   getMonitor, getLeaderboard, editScore, listReports, updateReport,
   suggestDifficulty, getBankTopics, exportRoomCsv, getUnits, addUnit, deleteUnit,
-  getContact, updateContact,
+  getContact, updateContact, listUsers, adminCreateUser,
 } from '../services/api.ts';
 
 const TABS = [
@@ -17,6 +17,7 @@ const TABS = [
   { id: 'reports', label: 'Báo lỗi' },
   { id: 'ml', label: 'ML độ khó' },
   { id: 'contact', label: 'Liên hệ' },
+  { id: 'users', label: 'Tài khoản' },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
@@ -73,6 +74,7 @@ export default function AdminPage() {
       {tab === 'reports' && subject && <ReportsTab key={`rp-${subject}`} subject={subject} />}
       {tab === 'ml' && subject && <MlTab key={`ml-${subject}`} subject={subject} />}
       {tab === 'contact' && <ContactTab />}
+      {tab === 'users' && <UsersTab />}
     </div>
   );
 }
@@ -590,6 +592,81 @@ function ContactTab() {
       <button type="button" onClick={doSave} disabled={busy} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
         {busy ? 'Đang lưu...' : 'Lưu liên hệ'}
       </button>
+    </div>
+  );
+}
+
+/* ---------------- Quan ly tai khoan ---------------- */
+
+function UsersTab() {
+  const [users, setUsers] = useState<{ username: string; role: string; created_at: number }[]>([]);
+  const [name, setName] = useState('');
+  const [pass, setPass] = useState('');
+  const [role, setRole] = useState('user');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const reload = () => {
+    listUsers().then((r) => setUsers(r.users || [])).catch((e) => setMsg(String(e)));
+  };
+  useEffect(() => { reload(); }, []);
+
+  const doCreate = async () => {
+    if (!name.trim() || !pass) { setMsg('Cần nhập tên đăng nhập và mật khẩu (mật khẩu >= 3 ký tự).'); return; }
+    setBusy(true);
+    try {
+      const r = await adminCreateUser(name.trim(), pass, role);
+      setName('');
+      setPass('');
+      setRole('user');
+      setMsg(`Đã tạo tài khoản "${r.username}" (${r.role}).`);
+      reload();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4 max-w-xl">
+        <h2 className="font-bold text-sm text-slate-800 mb-2">Tạo tài khoản mới</h2>
+        <div className="grid sm:grid-cols-3 gap-2 mb-3">
+          <input
+            value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đăng nhập"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+          />
+          <input
+            type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Mật khẩu"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+          />
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
+            <option value="user">Người dùng (user)</option>
+            <option value="admin">Quản trị viên (admin)</option>
+          </select>
+        </div>
+        <button type="button" onClick={doCreate} disabled={busy} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
+          {busy ? 'Đang tạo...' : 'Tạo tài khoản'}
+        </button>
+      </div>
+
+      {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="font-bold text-sm text-slate-800 mb-2">Danh sách tài khoản ({users.length})</h2>
+        <div className="flex flex-col gap-2 max-h-96 overflow-auto">
+          {users.map((u) => (
+            <div key={u.username} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center gap-2">
+              <b className="flex-1 text-slate-800">{u.username}</b>
+              {u.role === 'admin'
+                ? <span className="px-2 py-0.5 rounded-full bg-[#8B0000]/10 text-[#8B0000] font-bold">admin</span>
+                : <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">user</span>}
+            </div>
+          ))}
+          {users.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có tài khoản nào.</p>}
+        </div>
+      </div>
     </div>
   );
 }

@@ -228,6 +228,24 @@ export function logout() {
   }
 }
 
+export interface ListedUser {
+  username: string;
+  role: string;
+  created_at: number;
+}
+
+export async function listUsers(): Promise<{ users: ListedUser[] }> {
+  return fetchJson('/api/auth/users', { headers: authHeaders() });
+}
+
+export async function adminCreateUser(username: string, password: string, role: string): Promise<{ ok: boolean; username: string; role: string }> {
+  return fetchJson('/api/auth/users', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ username, password, role }),
+  });
+}
+
 export function currentUser(): { username: string; role: string } | null {
   try {
     const raw = localStorage.getItem('eq_user');

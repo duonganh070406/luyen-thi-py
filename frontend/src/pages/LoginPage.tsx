@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import dongSonBg from '../assets/dong_son_bg.jpg';
 import { login } from '../services/api.ts';
 
@@ -82,6 +82,13 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+
+          <p className="mt-4 text-center text-[11px] text-slate-300">
+            Chưa có tài khoản?{' '}
+            <Link to="/dang-ky" className="font-bold text-[#D4AF37] hover:underline">
+              Tạo tài khoản
+            </Link>
+          </p>
         </div>
       </div>
     </div>
