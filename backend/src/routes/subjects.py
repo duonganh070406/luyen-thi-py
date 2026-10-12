@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from src import auth as auth_store
 from src.config import DATA_ROOT
 from src.bank import pick_with_mix, shuffle_options
 from src.models import (
@@ -79,7 +80,9 @@ def list_subjects(include_inactive: bool = False) -> list[SubjectDetailResponse]
 
 @router.put("/api/subjects/{subject}/config")
 def update_subject_config(
-    subject: str, config: SubjectConfigModel
+    subject: str,
+    config: SubjectConfigModel,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ) -> dict[str, Any]:
     """Cập nhật cấu hình subject_config.json của môn học."""
     subject_dir = resolve_subject_dir(subject)
@@ -93,14 +96,19 @@ def update_subject_config(
 
 
 @router.get("/api/config/ai", response_model=AIConfigModel)
-def get_ai_config_endpoint() -> AIConfigModel:
+def get_ai_config_endpoint(
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> AIConfigModel:
     """Lấy cấu hình AI chấm điểm hiện tại."""
     config_dict = read_ai_config()
     return AIConfigModel(**config_dict)
 
 
 @router.put("/api/config/ai")
-def update_ai_config_endpoint(config: AIConfigModel) -> dict[str, Any]:
+def update_ai_config_endpoint(
+    config: AIConfigModel,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
     """Cập nhật cấu hình AI chấm điểm."""
     config_dict = config.model_dump(mode="json")
     write_ai_config(config_dict)
@@ -108,7 +116,10 @@ def update_ai_config_endpoint(config: AIConfigModel) -> dict[str, Any]:
 
 
 @router.post("/api/config/ai/test")
-async def test_ai_config_endpoint(config: AIProfileModel) -> dict[str, Any]:
+async def test_ai_config_endpoint(
+    config: AIProfileModel,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
     """Kiểm tra kết nối và độ chính xác của AI bằng prompt mặc định."""
     import os
     import traceback

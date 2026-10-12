@@ -49,6 +49,7 @@ export async function updateSubjectConfig(
   const s = encodeURIComponent(subjectFolderName);
   return fetchJson<{ ok: boolean }>(`/api/subjects/${s}/config`, {
     method: 'PUT',
+    headers: authHeaders(),
     body: JSON.stringify(config),
   });
 }
@@ -92,12 +93,13 @@ export interface AIConfig {
 }
 
 export async function getAIConfig(): Promise<AIConfig> {
-  return fetchJson<AIConfig>('/api/config/ai');
+  return fetchJson<AIConfig>('/api/config/ai', { headers: authHeaders() });
 }
 
 export async function updateAIConfig(config: AIConfig): Promise<{ ok: boolean }> {
   return fetchJson<{ ok: boolean }>('/api/config/ai', {
     method: 'PUT',
+    headers: authHeaders(),
     body: JSON.stringify(config),
   });
 }
@@ -105,6 +107,7 @@ export async function updateAIConfig(config: AIConfig): Promise<{ ok: boolean }>
 export async function testAIConfig(profile: AIProfile): Promise<{ success: boolean; response: string; error?: string }> {
   return fetchJson<{ success: boolean; response: string; error?: string }>('/api/config/ai/test', {
     method: 'POST',
+    headers: authHeaders(),
     body: JSON.stringify(profile),
   });
 }

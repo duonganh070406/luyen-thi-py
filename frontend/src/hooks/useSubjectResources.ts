@@ -123,7 +123,7 @@ export function useSubjectResources({
       setIsLoadingExams(true);
       try {
         const examList = await listExams(selectedSubjectId!);
-        setExams(examList);
+        setExams(Array.isArray(examList) ? examList : []);
       } catch (e) {
         console.error("Error fetching exams:", e);
       } finally {
@@ -144,7 +144,7 @@ export function useSubjectResources({
       setIsLoadingExamData(true);
       try {
         const raw = await getExamData(selectedSubjectId!, selectedExam!);
-        const qs = raw.map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
+        const qs = (Array.isArray(raw) ? raw : []).map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
         setExamQuestions(qs);
       } catch (e) {
         console.error("Error fetching exam questions:", e);

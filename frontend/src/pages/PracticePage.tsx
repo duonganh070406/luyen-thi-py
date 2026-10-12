@@ -40,8 +40,9 @@ export default function PracticePage() {
 
   useEffect(() => {
     listSubjects().then((s) => {
-      setSubjects(s.map((x) => ({ id: x.id, name: x.name })));
-      if (s.length > 0) setSubject(s[0].id);
+      const list = Array.isArray(s) ? s : [];
+      setSubjects(list.map((x) => ({ id: x.id, name: x.name })));
+      if (list.length > 0) setSubject(list[0].id);
     }).catch(() => {});
   }, []);
 
@@ -70,7 +71,7 @@ export default function PracticePage() {
         topics: picked, difficulty, count,
         shuffle_questions: shuffleQ, shuffle_options: shuffleO,
       });
-      const qs = raw.map((r) => questionFromApi(subject, r as Record<string, unknown>));
+      const qs = (Array.isArray(raw) ? raw : []).map((r) => questionFromApi(subject, r as Record<string, unknown>));
       if (qs.length === 0) {
         setNotice('Không tìm thấy câu hỏi phù hợp. Quản trị viên cần import đề trước.');
         return;

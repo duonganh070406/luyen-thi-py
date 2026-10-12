@@ -20,22 +20,24 @@ export function useAppData() {
       setIsLoadingData(true);
       try {
         const rawSubjects = await listSubjects();
+        const subjectList = Array.isArray(rawSubjects) ? rawSubjects : [];
         const iconChoices = ['Calculator', 'Code', 'BookOpen', 'FileText'];
-        const subjects: Subject[] = rawSubjects.map((s, i) => ({
+        const subjects: Subject[] = subjectList.map((s, i) => ({
           id: s.id,
           name: s.name,
           icon: iconChoices[i % iconChoices.length],
           description: s.config.description || 'Ngân hàng đề và lịch sử được đọc/ghi qua API backend.',
           other_information: s.config.other_information,
         }));
-        const subjectIds = rawSubjects.map(s => s.id);
+        const subjectIds = subjectList.map(s => s.id);
         const historyChunks = await Promise.all(
           subjectIds.map((n) => getHistory(n).catch(() => [] as unknown[]))
         );
         if (cancelled) return;
         const attempts: Attempt[] = [];
         subjectIds.forEach((name, i) => {
-          for (const raw of historyChunks[i]) {
+          const chunk = Array.isArray(historyChunks[i]) ? historyChunks[i] : [];
+          for (const raw of chunk) {
             attempts.push(attemptFromHistory(name, raw as Record<string, unknown>));
           }
         });

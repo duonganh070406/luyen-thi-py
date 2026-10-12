@@ -39,9 +39,11 @@ export default function ExamRoomPage() {
     }
   }, []);
 
-  // load units
+  // load units (API tra ve {units: [...]}; xu ly ca truong hop tra ve mang)
   useEffect(() => {
-    getUnits().then(setUnits).catch(() => setUnits([]));
+    getUnits()
+      .then((r: any) => setUnits(Array.isArray(r) ? r : (r?.units ?? [])))
+      .catch(() => setUnits([]));
   }, []);
 
   // countdown -> tu dong thu bai
@@ -92,7 +94,12 @@ export default function ExamRoomPage() {
       setAnswers(r.answers || {});
       setViolations(r.violations || 0);
       setMaxV(r.room?.max_violations || 3);
-      setTimeLeft((r.room?.time_limit || 30) * 60);
+      // Dung deadline server (epoch giay) de vao lai giua gio khong bi reset full gio
+      if (typeof r.deadline === 'number' && r.deadline > 0) {
+        setTimeLeft(Math.max(0, r.deadline - Math.floor(Date.now() / 1000)));
+      } else {
+        setTimeLeft((r.room?.time_limit || 30) * 60);
+      }
       setDone(r.submitted ? { score: 0, total: (r.questions || []).length } : null);
       setDetail(r.detail || []);
       credRef.current = { code: code.trim().toUpperCase(), participant: name.trim(), ticket: r.ticket || '' };
@@ -120,6 +127,9 @@ export default function ExamRoomPage() {
       // het gio giua chung -> server da tu thu, keo ket qua ve
       if (err instanceof Error && err.message.includes('Hết giờ')) {
         void doSubmit(true);
+      } else if (err instanceof Error && (err.message.includes('403') || err.message.includes('ticket'))) {
+        // mo tab khac / vao lai phong -> ticket cu het hieu luc, bao de vao lai
+        setWarn('Phiên thi đã hết hiệu lực (có thể do mở tab khác hoặc vào lại phòng). Hãy tải lại trang và vào lại phòng để lấy phiên mới — các câu đã lưu trên server vẫn được giữ.');
       }
     }
   };
@@ -166,9 +176,11 @@ export default function ExamRoomPage() {
                 className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
               >
                 <option value="">vd: Đội 1 - Phòng 2</option>
-                {units.map((u: any) => (
-                  <option key={u.id} value={u.name}>{u.name}</option>
-                ))}
+                {(Array.isArray(units) ? units : []).map((u: any, idx: number) => {
+                  const label = typeof u === 'string' ? u : (u?.name ?? '');
+                  const key = typeof u === 'string' ? u : (u?.id ?? u?.name ?? idx);
+                  return <option key={String(key)} value={label}>{label}</option>;
+                })}
               </select>
             </div>
             <div>

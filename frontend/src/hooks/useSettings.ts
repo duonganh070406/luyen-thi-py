@@ -102,15 +102,16 @@ export function useSettings({ selectedSubjectId, setState }: UseSettingsParams) 
     setIsLoadingAllSubjects(true);
     try {
       const res = await listSubjects(true);
-      setAllSubjectsForConfig(res);
+      const list = Array.isArray(res) ? res : [];
+      setAllSubjectsForConfig(list);
       const configs: Record<string, any> = {};
-      res.forEach(s => {
+      list.forEach(s => {
         configs[s.id] = { ...s.config };
       });
       setTempSubjectConfigs(configs);
-      if (res.length > 0) {
-        if (!selectedSubjectIdForConfig || !res.some(s => s.id === selectedSubjectIdForConfig)) {
-          setSelectedSubjectIdForConfig(res[0].id);
+      if (list.length > 0) {
+        if (!selectedSubjectIdForConfig || !list.some(s => s.id === selectedSubjectIdForConfig)) {
+          setSelectedSubjectIdForConfig(list[0].id);
         }
       }
     } catch (e) {

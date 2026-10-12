@@ -442,12 +442,12 @@ export default function SubjectDashboard({
           <div className="grid grid-cols-1 gap-4">
             {isLoadingStats ? (
               <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-slate-300" /></div>
-            ) : subjectStats?.mostMissed.length ? (
+            ) : (Array.isArray(subjectStats?.mostMissed) && subjectStats.mostMissed.length) ? (
               <>
                 {subjectStats.mostMissed
                   .slice((mostMissedPage - 1) * pageSize, mostMissedPage * pageSize)
                   .map((item: any, i: number) => (
-                    <MostMissedItem key={item.question.id} item={item} i={(mostMissedPage - 1) * pageSize + i} />
+                    <MostMissedItem key={item?.question?.id ?? `${(mostMissedPage - 1) * pageSize + i}`} item={item} i={(mostMissedPage - 1) * pageSize + i} />
                   ))}
                 <Pagination
                   current={mostMissedPage}
@@ -473,12 +473,12 @@ export default function SubjectDashboard({
           <div className="grid grid-cols-1 gap-4">
             {isLoadingStats ? (
               <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-slate-300" /></div>
-            ) : subjectStats?.recentErrors.length ? (
+            ) : (Array.isArray(subjectStats?.recentErrors) && subjectStats.recentErrors.length) ? (
               <>
                 {subjectStats.recentErrors
                   .slice((recentErrorsPage - 1) * pageSize, recentErrorsPage * pageSize)
                   .map((q: any, i: number) => (
-                    <RecentErrorItem key={q.id} q={q} i={(recentErrorsPage - 1) * pageSize + i} />
+                    <RecentErrorItem key={q?.id ?? `${(recentErrorsPage - 1) * pageSize + i}`} q={q} i={(recentErrorsPage - 1) * pageSize + i} />
                   ))}
                 <Pagination
                   current={recentErrorsPage}

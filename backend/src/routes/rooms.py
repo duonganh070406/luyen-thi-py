@@ -327,8 +327,8 @@ class UnitCreateBody(BaseModel):
 
 
 @router.get("/api/units")
-def list_units(_: auth_store.AuthUser = Depends(auth_store.require_admin)):
-    """Lay danh sach don vi."""
+def list_units():
+    """Lay danh sach don vi (public de thi sinh chon khi vao phong thi)."""
     return {"units": load_units()}
 
 

@@ -30,8 +30,9 @@ export default function AdminPage() {
       return;
     }
     listSubjects(true).then((s) => {
-      setSubjects(s.map((x) => ({ id: x.id, name: x.name })));
-      if (s.length > 0) setSubject(s[0].id);
+      const list = Array.isArray(s) ? s : [];
+      setSubjects(list.map((x) => ({ id: x.id, name: x.name })));
+      if (list.length > 0) setSubject(list[0].id);
     }).catch(() => {});
   }, [navigate]);
 
@@ -342,7 +343,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   const doCreate = async () => {
     try {
       if (!form.subject) { setMsg('Cần chọn bộ câu hỏi.'); return; }
-      const selectedUnit = units.find((u) => u.id === form.unit);
+      const selectedUnit = units.find((u) => (typeof u === 'string' ? u : u?.name) === form.unit);
       const r = await createRoom({
         name: form.name.trim() || 'Phòng thi',
         subject: form.subject,
@@ -386,7 +387,10 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
             <label className="block text-xs font-bold text-slate-700 mb-1">Đơn vị</label>
             <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
               <option value="">-- Chọn đơn vị --</option>
-              {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+              {units.map((u: any, idx: number) => {
+                const label = typeof u === 'string' ? u : (u?.name ?? '');
+                return <option key={label || idx} value={label}>{label}</option>;
+              })}
             </select>
           </div>
           <div>

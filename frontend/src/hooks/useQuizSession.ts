@@ -96,7 +96,7 @@ export function useQuizSession({
       setIsLoadingExamData(true);
       try {
         const raw = await getExamData(selectedSubjectId!, decodedExamName!);
-        const qs = raw.map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
+        const qs = (Array.isArray(raw) ? raw : []).map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
         setActiveQuizQuestions(qs);
         setActiveExamName(decodedExamName!.replace('.json', ''));
         setCurrentQuestionIndex(0);
@@ -173,7 +173,7 @@ export function useQuizSession({
       setIsLoadingData(true);
       try {
         const raw = await getComprehensiveQuiz(selectedSubjectId!, configObj);
-        const selected = raw.map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
+        const selected = (Array.isArray(raw) ? raw : []).map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
         if (selected.length === 0) {
           alert("Không tìm thấy câu hỏi phù hợp để tạo đề!");
           navigate(`/subject/${selectedSubjectId}`);
