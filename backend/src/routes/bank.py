@@ -10,7 +10,8 @@ from pydantic import BaseModel
 
 from src import auth as auth_store
 from src import bank as bank_store
-from src.utils import history_path, read_json_list, resolve_subject_dir
+from src import db as store
+from src.utils import resolve_subject_dir
 
 router = APIRouter()
 
@@ -187,6 +188,11 @@ def replace_bank(
     subject_dir = DATA_ROOT / name
     subject_dir.mkdir(parents=True, exist_ok=True)
     (subject_dir / "markdown").mkdir(parents=True, exist_ok=True)
+    try:
+        with store.session() as conn:
+            store.subject_ensure(conn, name)
+    except Exception:
+        pass
 
     clean: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -265,6 +271,11 @@ async def import_file(
         subject_dir = DATA_ROOT / subject.strip()
         subject_dir.mkdir(parents=True, exist_ok=True)
         (subject_dir / "markdown").mkdir(parents=True, exist_ok=True)
+        try:
+            with store.session() as conn:
+                store.subject_ensure(conn, subject.strip())
+        except Exception:
+            pass
         res = bank_store.import_items(subject, items)
         return {"ok": True, "filename": name, "errors": errors[:20], **res}
     except HTTPException:
@@ -321,8 +332,9 @@ def practice_quiz(subject: str, body: PracticeBody) -> list[Any]:
 
 @router.get("/api/subjects/{subject}/competency")
 def competency(subject: str) -> dict[str, Any]:
-    subject_dir = resolve_subject_dir(subject)
-    history = read_json_list(history_path(subject_dir))
+    resolve_subject_dir(subject)
+    with store.session() as conn:
+        history = store.history_list(conn, subject)
     # map qid -> (topic, difficulty) tu bank hien tai
     meta: dict[str, dict[str, str]] = {}
     for q in bank_store.load_bank(subject):
@@ -364,42 +376,36 @@ def ml_difficulty(subject: str, question_id: str = "", question: str = "") -> di
 
 # ---------- Bao loi cau hoi ----------
 
-def _reports_path(subject: str):
-    return resolve_subject_dir(subject) / "reports.json"
-
-
 @router.post("/api/subjects/{subject}/reports")
 def create_report(subject: str, body: dict[str, Any]) -> dict[str, Any]:
-    from src.utils import write_json_atomic
-
+    resolve_subject_dir(subject)
     qid = str(body.get("question_id") or body.get("questionId") or "")
     msg = str(body.get("message") or "").strip()
     if not qid or not msg:
         raise HTTPException(status_code=400, detail="Cần question_id + message.")
-    try:
-        items = read_json_list(_reports_path(subject))
-    except Exception:
-        items = []
     rep = {
         "id": f"rp_{int(time.time())}_{random.randint(1000, 9999)}",
+        "subject": subject.strip(),
         "question_id": qid,
         "message": msg,
         "reporter": str(body.get("reporter") or "an danh"),
         "status": "moi",
         "created_at": int(time.time()),
     }
-    items.append(rep)
     try:
-        write_json_atomic(_reports_path(subject), items)
+        with store.session() as conn:
+            store.report_add(conn, rep)
     except OSError:
         pass
-    return {"ok": True, "report": rep}
+    return {"ok": True, "report": {k: v for k, v in rep.items() if k != "subject"}}
 
 
 @router.get("/api/subjects/{subject}/reports")
 def list_reports(subject: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)) -> dict[str, Any]:
     try:
-        items = read_json_list(_reports_path(subject))
+        resolve_subject_dir(subject)
+        with store.session() as conn:
+            items = store.reports_list(conn, subject)
     except Exception:
         items = []
     return {"items": items, "total": len(items)}
@@ -416,18 +422,12 @@ def update_report(
     body: ReportStatusBody,
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ):
-    from src.utils import write_json_atomic
-
-    items = read_json_list(_reports_path(subject))
-    found = False
-    for r in items:
-        if isinstance(r, dict) and r.get("id") == rid:
-            r["status"] = body.status
-            found = True
+    resolve_subject_dir(subject)
+    try:
+        with store.session() as conn:
+            found = store.report_set_status(conn, subject, rid, body.status)
+    except OSError:
+        found = False
     if not found:
         raise HTTPException(status_code=404, detail="Không tìm thấy báo lỗi.")
-    try:
-        write_json_atomic(_reports_path(subject), items)
-    except OSError:
-        pass
     return {"ok": True}

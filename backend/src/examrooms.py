@@ -1,9 +1,8 @@
-"""Luu tru phong thi online (flat-file, chay local).
+"""Phong thi online, luu tru SQLite (src/db.py, file DATA_ROOT/app.db).
 
-- DATA_ROOT/rooms.json                 : list[room]
-- DATA_ROOT/room_sessions/<room>/<f>.json : MOI THI SINH 1 FILE rieng
-  (file cu room_sessions.json van duoc doc de tuong thich nguoc)
-- DATA_ROOT/room_sessions.json         : legacy, chi doc (khong ghi moi)
+- rooms          : 1 dong / phong
+- room_sessions  : khoa chinh (room_id, participant) — MOI THI SINH 1 DONG rieng
+  (du lieu JSON cu da duoc migrate vao DB luc khoi dong)
 
 Room: id, code, name, subject, topics, difficulty, count, time_limit,
       shuffle_questions, shuffle_options, status(open|closed),
@@ -12,8 +11,8 @@ Session: room_id, participant, ticket, questions(list quiz item day du,
       chi luu server), answers, violations, joins, joined_at, deadline,
       updated_at, submitted, submitted_at, score, total
 
-Chong mat bai dong thoi: moi session 1 file + ghi atomic (rename),
-nhieu thi sinh nop/luu cung luc khong de len nhau.
+Chong mat bai dong thoi: moi session 1 dong + ghi tuan tu duoi
+BEGIN IMMEDIATE (+ lock theo session trong process).
 
 Chong gian lan:
 - Dap an dung KHONG bao gio gui cho client truoc khi nop bai.
@@ -23,76 +22,48 @@ Chong gian lan:
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import random
 import secrets
 import string
 import threading
 import time
-import urllib.parse
 from typing import Any, Callable
 
+from src import db as store
 from src.bank import pick_with_mix, shuffle_options, unified_questions
-from src.config import DATA_ROOT
-from src.utils import read_json_list, write_json_atomic
 
-
-def _rooms_path():
-    return DATA_ROOT / "rooms.json"
-
-
-def _sessions_path():
-    # legacy: giu de doc tuong thich, khong ghi moi vao day nua
-    return DATA_ROOT / "room_sessions.json"
-
-
-def _sessions_dir(room_id: str):
-    return DATA_ROOT / "room_sessions" / str(room_id)
-
-
-def _session_filename(participant: str) -> str:
-    name = (participant or "").strip()
-    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
-    safe = urllib.parse.quote(name, safe="")[:80] or "unknown"
-    return f"{safe}_{digest}.json"
-
-
-def _read_session_file(path) -> dict[str, Any] | None:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+store.init_db()
 
 
 def load_rooms() -> list[dict[str, Any]]:
-    return [r for r in read_json_list(_rooms_path()) if isinstance(r, dict)]
+    with store.session() as conn:
+        return store.rooms_all(conn)
 
 
 def save_rooms(rooms: list[dict[str, Any]]) -> None:
-    write_json_atomic(_rooms_path(), rooms)
+    """Upsert toan bo danh sach (giu tuong thich ham cu; route nen dung update_room_fields)."""
+    with store.session() as conn:
+        for r in rooms:
+            if isinstance(r, dict) and r.get("id"):
+                store.room_upsert(conn, r)
+
+
+def update_room_fields(room_id: str, fields: dict[str, Any]) -> bool:
+    """Cap nhat 1 phong theo truong (khong doc-ghi ca bang)."""
+    with store.session() as conn:
+        return store.room_update_fields(conn, room_id, fields)
 
 
 def load_session(room_id: str, participant: str) -> dict[str, Any] | None:
-    """Doc 1 session (file rieng uu tien, roi den file legacy gop)."""
-    name = (participant or "").strip()
-    p = _sessions_dir(room_id) / _session_filename(name)
-    if p.is_file():
-        s = _read_session_file(p)
-        if s:
-            return s
-    for s in read_json_list(_sessions_path()):
-        if isinstance(s, dict) and s.get("room_id") == room_id and s.get("participant") == name:
-            return s
-    return None
+    """Doc 1 session cua thi sinh."""
+    with store.session() as conn:
+        return store.session_get(conn, room_id, participant)
 
 
 def save_session(sess: dict[str, Any]) -> None:
-    """Ghi 1 session ra file rieng (atomic)."""
-    d = _sessions_dir(str(sess.get("room_id", "")))
-    d.mkdir(parents=True, exist_ok=True)
-    write_json_atomic(d / _session_filename(str(sess.get("participant", ""))), sess)
+    """Ghi 1 session (upsert theo khoa room_id + participant)."""
+    with store.session() as conn:
+        store.session_put(conn, sess)
 
 
 _LOCKS: dict[str, threading.Lock] = {}
@@ -126,40 +97,19 @@ def update_session(room_id: str, participant: str, fn: Callable[[dict[str, Any]]
 
 
 def sessions_of(room_id: str) -> list[dict[str, Any]]:
-    """Tat ca session cua 1 phong (file rieng + legacy, rieng thang khi trung)."""
-    out: dict[str, dict[str, Any]] = {}
-    for s in read_json_list(_sessions_path()):
-        if isinstance(s, dict) and s.get("room_id") == room_id and s.get("participant"):
-            out[str(s.get("participant"))] = s
-    d = _sessions_dir(room_id)
-    if d.is_dir():
-        for p in sorted(d.glob("*.json")):
-            s = _read_session_file(p)
-            if s and s.get("participant"):
-                out[str(s.get("participant"))] = s
-    return list(out.values())
+    """Tat ca session cua 1 phong."""
+    with store.session() as conn:
+        return store.sessions_of_room(conn, room_id)
 
 
 def load_sessions() -> list[dict[str, Any]]:
     """Gop session MOI phong (chu yeu cho giam sat/BXH xuat bao cao)."""
-    out: dict[tuple[str, str], dict[str, Any]] = {}
-    for s in read_json_list(_sessions_path()):
-        if isinstance(s, dict) and s.get("room_id") and s.get("participant"):
-            out[(str(s["room_id"]), str(s["participant"]))] = s
-    base = DATA_ROOT / "room_sessions"
-    if base.is_dir():
-        for room_dir in sorted(base.iterdir()):
-            if not room_dir.is_dir():
-                continue
-            for p in sorted(room_dir.glob("*.json")):
-                s = _read_session_file(p)
-                if s and s.get("room_id") and s.get("participant"):
-                    out[(str(s["room_id"]), str(s["participant"]))] = s
-    return list(out.values())
+    with store.session() as conn:
+        return store.sessions_all(conn)
 
 
 def save_sessions(sessions: list[dict[str, Any]]) -> None:
-    """Ghi nhieu session (moi cai 1 file). Giu tuong thich ham cu."""
+    """Ghi nhieu session (moi cai 1 dong upsert). Giu tuong thich ham cu."""
     for s in sessions:
         if isinstance(s, dict) and s.get("room_id") and s.get("participant"):
             save_session(s)
@@ -175,8 +125,8 @@ def _new_code(existing: set[str]) -> str:
 
 
 def create_room(payload: dict[str, Any], created_by: str) -> dict[str, Any]:
-    rooms = load_rooms()
-    existing = {r.get("code") for r in rooms}
+    with store.session() as conn:
+        existing = store.room_codes(conn)
     rng = random.Random()
     room = {
         "id": f"room_{int(time.time())}_{rng.randint(1000, 9999)}",
@@ -196,24 +146,19 @@ def create_room(payload: dict[str, Any], created_by: str) -> dict[str, Any]:
         "max_violations": int(payload.get("max_violations") or 3),
     }
     room["code"] = str(room["code"]).strip().upper()
-    rooms.append(room)
-    save_rooms(rooms)
+    with store.session() as conn:
+        store.room_insert(conn, room)
     return room
 
 
 def get_room(room_id: str) -> dict[str, Any] | None:
-    for r in load_rooms():
-        if r.get("id") == room_id:
-            return r
-    return None
+    with store.session() as conn:
+        return store.room_by_id(conn, room_id)
 
 
 def get_room_by_code(code: str) -> dict[str, Any] | None:
-    c = (code or "").strip().upper()
-    for r in load_rooms():
-        if str(r.get("code", "")).upper() == c:
-            return r
-    return None
+    with store.session() as conn:
+        return store.room_by_code(conn, code)
 
 
 def grade_session(questions: list[dict[str, Any]], answers: dict[str, Any]) -> tuple[int, int]:

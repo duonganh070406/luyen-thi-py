@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from src import db as store
 from src.config import DATA_ROOT, UNITS_FILE
 from src.markdown_parser import _rewrite_image_urls, parse_md
 
@@ -179,7 +180,34 @@ def _read_subject_config_cached(
 
 
 def read_subject_config(subject_dir: Path) -> dict[str, Any]:
-    """Read the subject_config.json, returning default dict if not exists or invalid."""
+    """Read subject config tu SQLite (DB la nguon chinh; JSON cu da migrate)."""
+    defaults = {
+        "active": True,
+        "description": "",
+        "other_information": "",
+    }
+    try:
+        with store.session() as conn:
+            cfg = store.subject_get(conn, subject_dir.name)
+        if cfg is None:
+            # mon co thu muc nhung chua co dong DB (VD them tay): tao mac dinh
+            try:
+                with store.session() as conn:
+                    store.subject_ensure(conn, subject_dir.name)
+            except Exception:
+                pass
+            return defaults.copy()
+        return {
+            "active": bool(cfg.get("active", True)),
+            "description": str(cfg.get("description", "")),
+            "other_information": str(cfg.get("other_information", "")),
+        }
+    except Exception:
+        return defaults.copy()
+
+
+def _read_subject_config_legacy(subject_dir: Path) -> dict[str, Any]:
+    """Doc subject_config.json cu (chi dung khi can doi chieu du lieu)."""
     path = config_path(subject_dir)
     defaults = {
         "active": True,
@@ -250,12 +278,24 @@ def units_path() -> Path:
 
 
 def load_units() -> list[dict[str, Any]]:
-    """Load all units from units.json."""
-    if not UNITS_FILE.is_file():
+    """Load all units tu SQLite (JSON cu da migrate)."""
+    try:
+        with store.session() as conn:
+            return store.units_all(conn)
+    except Exception:
         return []
-    return read_json_list(UNITS_FILE)
 
 
 def save_units(units: list[dict[str, Any]]) -> None:
-    """Save units to units.json atomically."""
-    write_json_atomic(UNITS_FILE, units)
+    """Ghi de danh sach units (giu tuong thich ham cu)."""
+    try:
+        with store.transaction() as conn:
+            conn.execute("DELETE FROM units")
+            seen: set[str] = set()
+            for u in units or []:
+                name = str((u or {}).get("name", "")).strip() if isinstance(u, dict) else ""
+                if name and name.lower() not in seen:
+                    seen.add(name.lower())
+                    conn.execute("INSERT OR IGNORE INTO units(name) VALUES(?)", (name,))
+    except Exception:
+        pass

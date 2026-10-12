@@ -27,6 +27,11 @@ try:
 except Exception:
     pass
 
+# Khoi dong SQLite + migrate du lieu JSON cu (neu DB moi) truoc khi nhan request
+from src import db as _db
+
+_db.init_db()
+
 # KHONG mount StaticFiles /data public nua (lo hash mat khau + dap an + bai thi).
 # File anh public + file nhay cam chi admin qua GET /data/{path} trong browse router.
 

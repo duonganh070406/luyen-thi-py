@@ -60,34 +60,27 @@ class RoomUpdateBody(BaseModel):
 
 @router.put("/api/rooms/{room_id}")
 def update_room(room_id: str, body: RoomUpdateBody, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
-    rooms = store.load_rooms()
-    found = False
-    for r in rooms:
-        if r.get("id") == room_id:
-            found = True
-            if body.name is not None:
-                r["name"] = body.name
-            if body.status in ("open", "closed"):
-                r["status"] = body.status
-            if body.time_limit is not None:
-                r["time_limit"] = max(1, int(body.time_limit))
-            if body.max_violations is not None:
-                r["max_violations"] = max(1, int(body.max_violations))
-    if not found:
+    fields: dict[str, Any] = {}
+    if body.name is not None:
+        fields["name"] = body.name
+    if body.status in ("open", "closed"):
+        fields["status"] = body.status
+    if body.time_limit is not None:
+        fields["time_limit"] = max(1, int(body.time_limit))
+    if body.max_violations is not None:
+        fields["max_violations"] = max(1, int(body.max_violations))
+    if not store.update_room_fields(room_id, fields):
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    store.save_rooms(rooms)
     return {"ok": True}
 
 
 @router.post("/api/rooms/{room_id}/close")
 def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
     """Quan tri vien dong bai thi: khoa phong, tu dong thu bai tat ca."""
-    rooms = store.load_rooms()
-    room = next((r for r in rooms if r.get("id") == room_id), None)
+    room = store.get_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    room["status"] = "closed"
-    store.save_rooms(rooms)
+    store.update_room_fields(room_id, {"status": "closed"})
     for s in store.sessions_of(room_id):
         if not s.get("submitted"):
             store.finalize_session(s)

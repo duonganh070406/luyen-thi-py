@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src import auth as auth_store
+from src import db as store
 from src.config import DATA_ROOT
 from src.bank import pick_with_mix, shuffle_options
 from src.models import (
@@ -56,24 +57,40 @@ GradingRegistry.register(MatchingGrading())
 
 @router.get("/api/subjects", response_model=list[SubjectDetailResponse])
 def list_subjects(include_inactive: bool = False) -> list[SubjectDetailResponse]:
-    """Liệt kê các môn học hợp lệ."""
-    if not DATA_ROOT.is_dir():
-        return []
+    """Liệt kê các môn học hợp lệ (DB la nguon chinh + tu nhan thu muc co noi dung)."""
     subjects: list[SubjectDetailResponse] = []
-    for entry in sorted(DATA_ROOT.iterdir(), key=lambda p: p.name.lower()):
-        if not entry.is_dir():
-            continue
-        if not has_exam_files(entry) and not (entry / "questions.json").is_file():
-            continue
-        config_dict = read_subject_config(entry)
+    with store.session() as conn:
+        known = {s["name"]: s for s in store.subjects_all(conn)}
+    if DATA_ROOT.is_dir():
+        for entry in sorted(DATA_ROOT.iterdir(), key=lambda p: p.name.lower()):
+            if not entry.is_dir():
+                continue
+            with store.session() as conn:
+                has_bank = store.bank_count(conn, entry.name) > 0
+            if not has_exam_files(entry) and not has_bank:
+                continue
+            if entry.name not in known:
+                # thu muc them tay ngoai DB: tu tao dong mac dinh
+                try:
+                    with store.session() as conn:
+                        store.subject_ensure(conn, entry.name)
+                except Exception:
+                    pass
+                known[entry.name] = {"name": entry.name, "active": True, "description": "", "other_information": ""}
+    for name in sorted(known.keys(), key=lambda s: s.lower()):
+        cfg = known[name]
         # Ẩn môn học nếu active là False và không yêu cầu hiển thị tất cả
-        if not include_inactive and not config_dict.get("active", True):
+        if not include_inactive and not cfg.get("active", True):
             continue
         subjects.append(
             SubjectDetailResponse(
-                id=entry.name,
-                name=entry.name,
-                config=SubjectConfigModel(**config_dict),
+                id=name,
+                name=name,
+                config=SubjectConfigModel(
+                    active=bool(cfg.get("active", True)),
+                    description=str(cfg.get("description", "")),
+                    other_information=str(cfg.get("other_information", "")),
+                ),
             )
         )
     return subjects
@@ -85,12 +102,17 @@ def update_subject_config(
     config: SubjectConfigModel,
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ) -> dict[str, Any]:
-    """Cập nhật cấu hình subject_config.json của môn học."""
-    subject_dir = resolve_subject_dir(subject)
-    path = config_path(subject_dir)
+    """Cập nhật cấu hình mon hoc (luu SQLite)."""
+    resolve_subject_dir(subject)
     config_dict = config.model_dump(mode="json")
     try:
-        write_json_atomic(path, config_dict)
+        with store.session() as conn:
+            store.subject_save_config(
+                conn, subject.strip(),
+                bool(config_dict.get("active", True)),
+                str(config_dict.get("description", "")),
+                str(config_dict.get("other_information", "")),
+            )
     except OSError:
         pass
     return {"ok": True}
@@ -287,9 +309,9 @@ def get_subject_data(subject: str) -> list[Any]:
 @router.get("/api/subjects/{subject}/history")
 def get_history(subject: str) -> list[Any]:
     """Lấy toàn bộ lịch sử làm bài của môn học."""
-    subject_dir = resolve_subject_dir(subject)
-    hpath = history_path(subject_dir)
-    return read_json_list(hpath)
+    resolve_subject_dir(subject)
+    with store.session() as conn:
+        return store.history_list(conn, subject)
 
 
 @router.get("/api/subjects/{subject}/notes")
@@ -328,10 +350,8 @@ def get_note_content(subject: str, note_name: str) -> dict[str, str]:
 
 @router.post("/api/subjects/{subject}/history", status_code=201)
 async def append_history(subject: str, body: HistoryAttemptCreate) -> dict[str, Any]:
-    """Ghi thêm một lần làm bài mới vào history.json sau khi chấm điểm ở backend."""
-    subject_dir = resolve_subject_dir(subject)
-    hpath = history_path(subject_dir)
-    current = read_json_list(hpath)
+    """Ghi thêm một lần làm bài mới vào lich su (SQLite) sau khi chấm điểm ở backend."""
+    resolve_subject_dir(subject)
 
     ai_config = read_ai_config()
     enable_ai = body.enableAIGrading and ai_config.get("enableAIGrading", True)
@@ -470,39 +490,26 @@ async def append_history(subject: str, body: HistoryAttemptCreate) -> dict[str, 
         "snapshot": snapshot
     }
 
-    current.append(graded_attempt)
     try:
-        write_json_atomic(hpath, current)
+        with store.session() as conn:
+            store.history_add(conn, subject, graded_attempt)
+            total = len(store.history_list(conn, subject))
     except OSError:
-        pass
+        total = 0
 
-    return {"ok": True, "length": len(current), "attempt": graded_attempt}
+    return {"ok": True, "length": total, "attempt": graded_attempt}
 
 
 @router.delete("/api/subjects/{subject}/history/{attempt_id}", status_code=200)
 def delete_history_attempt(subject: str, attempt_id: str) -> dict[str, Any]:
-    """Xóa một attempt cụ thể trong history.json."""
-    subject_dir = resolve_subject_dir(subject)
-    hpath = history_path(subject_dir)
-    current = read_json_list(hpath)
-
-    new_history = []
-    found = False
-    for att in current:
-        att_id = str(att.get("attemptId", ""))
-        if att_id == attempt_id:
-            found = True
-        else:
-            new_history.append(att)
-
+    """Xóa một attempt cụ thể trong lich su."""
+    resolve_subject_dir(subject)
+    with store.session() as conn:
+        found = store.history_delete(conn, subject, attempt_id)
+        total = len(store.history_list(conn, subject))
     if not found:
         raise HTTPException(status_code=404, detail="Attempt not found")
-
-    try:
-        write_json_atomic(hpath, new_history)
-    except OSError:
-        pass
-    return {"ok": True, "length": len(new_history)}
+    return {"ok": True, "length": total}
 
 
 @router.post("/api/subjects/{subject}/comprehensive-quiz")
@@ -706,9 +713,9 @@ def get_comprehensive_quiz(
 @router.get("/api/subjects/{subject}/stats")
 def get_subject_stats(subject: str) -> dict[str, Any]:
     """Thống kê các câu hỏi hay sai và sai gần đây."""
-    subject_dir = resolve_subject_dir(subject)
-    hpath = history_path(subject_dir)
-    history = read_json_list(hpath)
+    resolve_subject_dir(subject)
+    with store.session() as conn:
+        history = store.history_list(conn, subject)
 
     error_counts: dict[int, dict[str, Any]] = {}
     recent_errors: list[dict[str, Any]] = []

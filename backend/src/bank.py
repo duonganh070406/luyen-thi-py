@@ -1,6 +1,5 @@
-"""Ngan hang de (question bank) luu flat-file JSON theo mon.
+"""Ngan hang de (question bank) luu SQLite theo mon (bang bank_questions).
 
-Moi mon: DATA_ROOT/<mon>/questions.json : list[dict]
 Schema moi cau:
   id, question, options(list theo thu tu A..E), answer(letter A-E),
   difficulty (De | Trung binh | Kho), topic, explanation, created_at, updated_at
@@ -19,12 +18,12 @@ import io
 import random
 import time
 import unicodedata
-from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
-from src.utils import parse_exam_file, read_json_list, resolve_subject_dir, write_json_atomic
+from src import db as store
+from src.utils import parse_exam_file, resolve_subject_dir
 
 LETTERS = ["A", "B", "C", "D", "E"]
 
@@ -78,20 +77,19 @@ def normalize_answer(raw: Any, n_options: int = 4) -> str:
     return "A"
 
 
-def questions_path(subject_dir: Path) -> Path:
-    return subject_dir / "questions.json"
-
-
 def load_bank(subject: str) -> list[dict[str, Any]]:
-    subject_dir = resolve_subject_dir(subject)
-    path = questions_path(subject_dir)
-    data = read_json_list(path)
-    return [d for d in data if isinstance(d, dict)]
+    with store.session() as conn:
+        return store.bank_list(conn, subject)
 
 
 def save_bank(subject: str, items: list[dict[str, Any]]) -> None:
-    subject_dir = resolve_subject_dir(subject)
-    write_json_atomic(questions_path(subject_dir), items)
+    with store.session() as conn:
+        store.bank_replace(conn, subject, items)
+
+
+def delete_bank_item(subject: str, qid: str) -> bool:
+    with store.session() as conn:
+        return store.bank_delete(conn, subject, qid)
 
 
 def bank_topics(subject: str) -> list[str]:
@@ -425,12 +423,10 @@ def suggest_difficulty(subject: str, question_id: str | None = None, question_te
     Tra ve {suggested, wrong_rate, attempts, confidence}.
     Day la pipeline ML don gian, co the thay bang model that sau nay.
     """
-    from src.utils import history_path
-
     history: list[dict[str, Any]] = []
     try:
-        subject_dir = resolve_subject_dir(subject)
-        history = read_json_list(history_path(subject_dir))
+        with store.session() as conn:
+            history = store.history_list(conn, subject)
     except Exception:
         history = []
     total = 0
