@@ -270,6 +270,39 @@ export async function deleteBankQuestion(subject: string, qid: string): Promise<
   });
 }
 
+export interface ImportPreview {
+  ok: boolean;
+  filename: string;
+  suggested: string;
+  items: any[];
+  errors: string[];
+  total: number;
+}
+
+export async function previewImportFile(file: File): Promise<ImportPreview> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(url('/api/import/preview'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: fd,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
+  }
+  return res.json();
+}
+
+export async function replaceBank(subject: string, items: any[]): Promise<{ ok: boolean; saved: number; total: number; errors: string[] }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson('/api/subjects/' + s + '/bank', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ items }),
+  });
+}
+
 export async function importBankFile(subject: string, file: File): Promise<{ ok: boolean; added: number; total: number; errors: string[] }> {
   const s = encodeURIComponent(subject);
   const fd = new FormData();

@@ -122,6 +122,112 @@ def delete_question(
 
 # ---------- Import Excel/CSV (format image.png) ----------
 
+def _sanitize_subject_name(subject: str) -> str:
+    name = (subject or "").strip()
+    if not name or "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(status_code=400, detail="Tên bộ câu hỏi không hợp lệ.")
+    return name
+
+
+@router.post("/api/import/preview")
+async def import_preview(
+    file: UploadFile,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
+    """Doc file Excel/CSV va tra ve cau hoi PHAN TICH DUOC ma KHONG luu.
+    Frontend hien preview, user sua ten bo de roi bam Luu (goi PUT bank)."""
+    name = (file.filename or "").strip()
+    lower = name.lower()
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng.")
+    try:
+        if lower.endswith(".csv"):
+            rows = bank_store.read_csv_bytes(data)
+        elif lower.endswith((".xlsx", ".xlsm", ".xltx")):
+            rows = bank_store.read_xlsx_bytes(data)
+        elif lower.endswith(".xls"):
+            raise HTTPException(status_code=400, detail="File .xls cũ không được hỗ trợ. Hãy Save As .xlsx hoặc .csv.")
+        else:
+            try:
+                rows = bank_store.read_csv_bytes(data)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Định dạng không hỗ trợ. Hãy dùng .xlsx hoặc .csv.")
+        items, errors = bank_store.parse_rows(rows)
+        stem = name.rsplit(".", 1)[0].strip() if "." in name else name
+        return {
+            "ok": True,
+            "filename": name,
+            "suggested": stem,
+            "items": items,
+            "errors": errors[:20],
+            "total": len(items),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi đọc file: {e}")
+
+
+class BankReplaceBody(BaseModel):
+    items: list[dict[str, Any]] = []
+
+
+@router.put("/api/subjects/{subject}/bank")
+def replace_bank(
+    subject: str,
+    body: BankReplaceBody,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
+    """Ghi DE TOAN BO ngan hang de (tao bo moi neu chua co).
+    Dung cho: Luu bo de sau khi preview import + Luu thay doi sau khi sua staged."""
+    from src.config import DATA_ROOT
+
+    name = _sanitize_subject_name(subject)
+    subject_dir = DATA_ROOT / name
+    subject_dir.mkdir(parents=True, exist_ok=True)
+    (subject_dir / "markdown").mkdir(parents=True, exist_ok=True)
+
+    clean: list[dict[str, Any]] = []
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    n = 0
+    for i, raw in enumerate(body.items or []):
+        if not isinstance(raw, dict):
+            continue
+        q_text = str(raw.get("question") or "").strip()
+        if not q_text:
+            continue
+        opts = [str(o).strip() for o in (raw.get("options") or []) if str(o or "").strip()]
+        if len(opts) < 2:
+            errors.append(f"Câu {i + 1}: cần ít nhất 2 phương án (đã bỏ qua).")
+            continue
+        letter = bank_store.normalize_answer(raw.get("answer"), len(opts))
+        qid = str(raw.get("id") or "").strip()
+        if not qid or qid in seen_ids or qid.startswith("new_"):
+            n += 1
+            qid = f"q_{int(time.time())}_{n}"
+            while qid in seen_ids:
+                n += 1
+                qid = f"q_{int(time.time())}_{n}"
+        seen_ids.add(qid)
+        clean.append(
+            {
+                "id": qid,
+                "question": q_text,
+                "options": opts,
+                "answer": letter,
+                "difficulty": bank_store.normalize_difficulty(raw.get("difficulty")),
+                "topic": str(raw.get("topic") or "").strip() or "Chung",
+                "explanation": str(raw.get("explanation") or ""),
+                "created_at": int(time.time()),
+                "updated_at": int(time.time()),
+            }
+        )
+    bank_store.save_bank(name, clean)
+    return {"ok": True, "saved": len(clean), "total": len(clean), "errors": errors[:20]}
+
+
 @router.post("/api/subjects/{subject}/import")
 async def import_file(
     subject: str,
