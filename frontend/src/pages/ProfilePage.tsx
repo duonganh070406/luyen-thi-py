@@ -65,7 +65,7 @@ export default function ProfilePage() {
   if (checking) {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-[#8B0000]" size={32} />
+        <Loader2 className="animate-spin text-primary" size={32} />
       </div>
     );
   }
@@ -76,13 +76,13 @@ export default function ProfilePage() {
   return (
     <div className="max-w-md mx-auto px-4 py-12">
       <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-xs text-center">
-        <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center text-3xl font-bold text-white mb-4 ${isAdmin ? 'bg-[#8B0000]' : 'bg-slate-700'}`}>
+        <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center text-3xl font-bold text-white mb-4 ${isAdmin ? 'bg-primary' : 'bg-slate-700'}`}>
           {user.username.charAt(0).toUpperCase()}
         </div>
         <h1 className="text-xl font-bold text-slate-900">{user.username}</h1>
         <div className="mt-2 flex justify-center">
           {isAdmin ? (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#8B0000]/10 text-[#8B0000] border border-[#8B0000]/20">
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
               <ShieldCheck size={14} /> Quản trị viên (admin)
             </span>
           ) : (
@@ -120,17 +120,17 @@ export default function ProfilePage() {
           <label className="block text-xs font-bold text-slate-600 mb-1">Mật khẩu hiện tại</label>
           <input
             type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-2"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-primary mb-2"
           />
           <label className="block text-xs font-bold text-slate-600 mb-1">Mật khẩu mới (tối thiểu 3 ký tự)</label>
           <input
             type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-2"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-primary mb-2"
           />
           <label className="block text-xs font-bold text-slate-600 mb-1">Nhập lại mật khẩu mới</label>
           <input
             type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-3"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-primary mb-3"
           />
           {passMsg && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{passMsg}</p>}
           <button
@@ -147,7 +147,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => navigate('/admin')}
-              className="w-full py-2.5 rounded-xl bg-[#8B0000] hover:bg-[#700000] text-white text-sm font-bold cursor-pointer transition-colors"
+              className="w-full py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-bold cursor-pointer transition-colors"
             >
               Tới trang Quản trị
             </button>

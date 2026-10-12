@@ -172,7 +172,7 @@ export default function PracticePage() {
             <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2 text-xs mb-3">
                 <span className="font-bold text-slate-500">Câu {i + 1}</span>
-                {q.topic && <span className="px-2 py-0.5 rounded-full bg-[#8B0000]/10 text-[#8B0000] font-bold">{q.topic}</span>}
+                {q.topic && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{q.topic}</span>}
                 {q.difficulty && <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{DIFF_LABEL[q.difficulty] ?? q.difficulty}</span>}
               </div>
               <div className="text-sm text-slate-800 font-medium mb-4"><MarkdownRenderer content={q.text} /></div>
@@ -184,7 +184,7 @@ export default function PracticePage() {
                       key={oi}
                       type="button"
                       onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
-                      className={`text-left px-4 py-3 rounded-xl border text-sm transition-colors cursor-pointer ${active ? 'border-[#8B0000] bg-[#8B0000]/5 font-bold text-[#8B0000]' : 'border-slate-200 hover:border-[#8B0000]'}`}
+                      className={`text-left px-4 py-3 rounded-xl border text-sm transition-colors cursor-pointer ${active ? 'border-primary bg-primary/5 font-bold text-primary' : 'border-slate-200 hover:border-primary'}`}
                     >
                       <b className="mr-2">{'ABCDE'[oi]}.</b><MarkdownRenderer content={opt} />
                     </button>
@@ -196,7 +196,7 @@ export default function PracticePage() {
         </div>
         <button
           type="button" onClick={submit}
-          className="mt-5 w-full py-4 rounded-2xl bg-[#8B0000] text-white font-bold text-sm hover:bg-[#6B0000] cursor-pointer transition-colors"
+          className="mt-5 w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm hover:bg-primary-dark cursor-pointer transition-colors"
         >
           Nộp bài ({Object.keys(answers).length}/{questions.length} đã làm)
         </button>
@@ -208,12 +208,12 @@ export default function PracticePage() {
   if (result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
-        <div className="rounded-2xl bg-[#8B0000] text-white p-6 mb-4 flex items-center gap-4 shadow-sm">
+        <div className="rounded-2xl bg-primary text-white p-6 mb-4 flex items-center gap-4 shadow-sm">
           <div className="flex-1">
             <h1 className="font-bold text-xl">Kết quả: {score}/{result.length} câu đúng</h1>
             <p className="text-sm text-white/90 mt-1">Đã lưu lịch sử — xem biểu đồ năng lực và câu sai gần đây bên dưới.</p>
           </div>
-          <button type="button" onClick={() => { setResult(null); setQuestions([]); }} className="flex items-center gap-1.5 px-5 py-3 rounded-xl bg-[#D4AF37] text-[#8B0000] text-sm font-bold cursor-pointer hover:bg-[#E5C158] transition-colors">
+          <button type="button" onClick={() => { setResult(null); setQuestions([]); }} className="flex items-center gap-1.5 px-5 py-3 rounded-xl bg-gold text-primary text-sm font-bold cursor-pointer hover:bg-gold-light transition-colors">
             <RotateCcw size={16} /> Luyện tiếp
           </button>
         </div>
@@ -226,7 +226,7 @@ export default function PracticePage() {
                 {r.ok
                   ? <span className="flex items-center gap-1 text-green-600 font-bold"><CheckCircle2 size={14} /> Đúng</span>
                   : <span className="flex items-center gap-1 text-red-500 font-bold"><XCircle size={14} /> Sai</span>}
-                {r.q.topic && <span className="px-2 py-0.5 rounded-full bg-[#8B0000]/10 text-[#8B0000] font-bold">{r.q.topic}</span>}
+                {r.q.topic && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{r.q.topic}</span>}
               </div>
               <div className="text-sm text-slate-800 font-medium mb-3"><MarkdownRenderer content={r.q.text} /></div>
               <div className="text-xs mt-2 flex flex-col gap-1">
@@ -247,9 +247,9 @@ export default function PracticePage() {
                     <input
                       value={reportMsg} onChange={(e) => setReportMsg(e.target.value)}
                       placeholder="Mô tả lỗi sai của câu hỏi..."
-                      className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-[#8B0000] focus:ring-2 focus:ring-[#8B0000]/10"
+                      className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                     />
-                    <button type="button" onClick={() => sendReport(r.q.id)} className="px-4 py-2 rounded-xl bg-[#D4AF37] text-[#8B0000] text-xs font-bold cursor-pointer hover:bg-[#E5C158] transition-colors">Gửi</button>
+                    <button type="button" onClick={() => sendReport(r.q.id)} className="px-4 py-2 rounded-xl bg-gold text-primary text-xs font-bold cursor-pointer hover:bg-gold-light transition-colors">Gửi</button>
                     <button type="button" onClick={() => setReportFor(null)} className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-bold cursor-pointer">Hủy</button>
                   </div>
                 ) : (
@@ -276,7 +276,7 @@ export default function PracticePage() {
           <select
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
+            className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           >
             {subjects.length === 0 && <option value="">Đang tải danh sách môn học...</option>}
             {subjects.map((s) => (
@@ -296,7 +296,7 @@ export default function PracticePage() {
               onClick={() => setPicked([])}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                 picked.length === 0
-                  ? 'bg-[#2A0505] text-white border border-[#2A0505]'
+                  ? 'bg-primary-deep text-white border border-primary-deep'
                   : 'bg-white text-slate-700 border border-slate-300 hover:border-slate-400'
               }`}
             >
@@ -311,7 +311,7 @@ export default function PracticePage() {
                   onClick={() => toggleTopic(t)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-[#2A0505] text-white border border-[#2A0505]'
+                      ? 'bg-primary-deep text-white border border-primary-deep'
                       : 'bg-white text-slate-700 border border-slate-300 hover:border-slate-400'
                   }`}
                 >
@@ -332,7 +332,7 @@ export default function PracticePage() {
               max={200}
               value={count}
               onChange={(e) => setCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 text-center outline-none focus:border-[#8B0000] focus:ring-1 focus:ring-[#8B0000]"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 text-center outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
           <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer pb-2.5 select-none">
@@ -340,7 +340,7 @@ export default function PracticePage() {
               type="checkbox"
               checked={shuffleQ}
               onChange={(e) => setShuffleQ(e.target.checked)}
-              className="w-4 h-4 rounded text-[#8B0000] focus:ring-[#8B0000] accent-[#8B0000]"
+              className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
             />
             <span>Trộn câu hỏi</span>
           </label>
@@ -349,7 +349,7 @@ export default function PracticePage() {
               type="checkbox"
               checked={shuffleO}
               onChange={(e) => setShuffleO(e.target.checked)}
-              className="w-4 h-4 rounded text-[#8B0000] focus:ring-[#8B0000] accent-[#8B0000]"
+              className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
             />
             <span>Đảo đáp án</span>
           </label>
@@ -366,7 +366,7 @@ export default function PracticePage() {
           type="button"
           onClick={start}
           disabled={loading || !subject}
-          className="w-full py-3 rounded-lg bg-[#8B0000] hover:bg-[#700000] text-white font-semibold text-xs cursor-pointer transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full py-3 rounded-lg bg-primary hover:bg-primary-dark text-white font-semibold text-xs cursor-pointer transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Play size={13} fill="currentColor" />
           <span>{loading ? 'Đang chuẩn bị đề...' : 'Bắt đầu luyện thi'}</span>
@@ -386,7 +386,7 @@ export default function PracticePage() {
                 key={h.id}
                 type="button"
                 onClick={() => viewHistory(h)}
-                className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-3 hover:border-[#8B0000] hover:bg-[#8B0000]/5 cursor-pointer text-left transition-colors"
+                className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-3 hover:border-primary hover:bg-primary/5 cursor-pointer text-left transition-colors"
               >
                 <span className="flex-1 min-w-0">
                   <span className="block font-bold text-slate-800 truncate">{h.examName || 'Đề ngẫu nhiên'}</span>

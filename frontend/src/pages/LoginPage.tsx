@@ -52,7 +52,7 @@ export default function LoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
                 autoComplete="username"
               />
             </div>
@@ -65,7 +65,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-[#D4AF37]"
+                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
                 autoComplete="current-password"
               />
             </div>
@@ -80,7 +80,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !username.trim() || !password}
-                className="w-full h-10 rounded-full bg-[#D4AF37] hover:bg-[#E5C158] active:bg-[#C29E2E] text-[#3D0A0A] text-xs font-bold transition-colors cursor-pointer shadow-md disabled:opacity-60 flex items-center justify-center tracking-wider"
+                className="w-full h-10 rounded-full bg-gold hover:bg-gold-light active:bg-gold-dark text-primary-deep text-xs font-bold transition-colors cursor-pointer shadow-md disabled:opacity-60 flex items-center justify-center tracking-wider"
               >
                 {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
@@ -89,7 +89,7 @@ export default function LoginPage() {
 
           <p className="mt-4 text-center text-[11px] text-slate-300">
             Chưa có tài khoản?{' '}
-            <Link to="/dang-ky" className="font-bold text-[#D4AF37] hover:underline">
+            <Link to="/dang-ky" className="font-bold text-gold hover:underline">
               Tạo tài khoản
             </Link>
           </p>

@@ -292,7 +292,8 @@ class ScoreEditBody(BaseModel):
 def edit_leaderboard(room_id: str, body: ScoreEditBody, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
     """Quan tri vien sua diem thi sinh tren bang xep hang."""
     def _apply(s: dict[str, Any]) -> None:
-        s["score"] = max(0, int(body.score))
+        total = int(s.get("total") or len(s.get("questions") or []) or 0)
+        s["score"] = max(0, min(int(body.score), total))
         s["submitted"] = True
         if not s.get("submitted_at"):
             s["submitted_at"] = int(time.time())

@@ -12,7 +12,7 @@ const CARDS = [
   {
     icon: <ClipboardList size={22} />,
     title: 'Tham gia kiểm tra',
-    desc: 'Nhập họ tên, đơn vị, số căn cước/công dân và mã kỳ kiểm tra do cán bộ phụ trách cung cấp. Bài làm được lưu tự động sau mỗi câu.',
+    desc: 'Nhập họ tên, đơn vị, số căn cước công dân và mã kỳ kiểm tra do cán bộ phụ trách cung cấp. Bài làm được lưu tự động sau mỗi câu.',
     link: 'Vào kỳ kiểm tra →',
     to: '/phong-thi',
   },

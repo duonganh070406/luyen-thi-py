@@ -71,10 +71,10 @@ export default function Sidebar({
         {/* Mobile Header with close button */}
         <div className="flex md:hidden items-center justify-between pb-4 mb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center font-bold">
               <BookOpen size={16} />
             </div>
-            <span className="font-bold text-slate-800 text-base font-serif italic">EduQuest</span>
+            <span className="font-bold text-slate-800 text-base">KT Nhận thức</span>
           </div>
           <button
             type="button"

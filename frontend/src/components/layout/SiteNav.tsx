@@ -43,7 +43,7 @@ export default function SiteNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 shadow-md">
+    <header className="shadow-md">
       {/* Tang 1: thuong hieu (nen trang) */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
@@ -69,8 +69,8 @@ export default function SiteNav() {
         </div>
       </div>
 
-      {/* Tang 2: thanh dieu huong (nen do) */}
-      <div className="bg-primary">
+      {/* Tang 2: thanh dieu huong (nen do) - giu dinh khi cuon */}
+      <div className="bg-primary sticky top-0 z-40 shadow-md">
         <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-between gap-2">
           <nav className="hidden md:flex items-center gap-1 h-full">
             {LINKS.map((l) => (

@@ -171,7 +171,7 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] supports-[height:100dvh]:h-[calc(100dvh-3.5rem)] bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-[calc(100vh-109px)] supports-[height:100dvh]:h-[calc(100dvh-109px)] bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <Sidebar
         subjects={state.subjects}
         selectedSubjectId={selectedSubjectId}
@@ -198,9 +198,9 @@ function AppContent() {
               >
                 <Menu size={20} />
               </button>
-              <h1 className="text-base font-bold text-slate-800 italic font-serif truncate max-w-[55vw]">
-                {activeSubject?.name || 'EduQuest'}
-              </h1>
+                <h1 className="text-base font-bold text-slate-800 truncate max-w-[55vw]">
+                  {activeSubject?.name || 'Kiểm tra nhận thức'}
+                </h1>
             </div>
             <button
               type="button"
@@ -227,24 +227,24 @@ function AppContent() {
         )}
         {isLoadingData && (
           <div className="absolute inset-0 z-50 bg-white/85 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3">
-            <Loader2 className="animate-spin text-indigo-600" size={36} />
+            <Loader2 className="animate-spin text-primary" size={36} />
             <span className="text-slate-600 text-sm">Đang tải dữ liệu từ máy chủ...</span>
           </div>
         )}
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 shadow-sm">
+              <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-sm">
                 <BookOpen size={32} />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 italic font-serif mb-2">Chào mừng đến với EduQuest</h2>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản</h2>
               <p className="text-slate-500 text-sm max-w-sm mb-6">
                 Chọn một môn học từ danh sách bên trái để bắt đầu ôn tập các câu hỏi trắc nghiệm, tự luận và thẻ ghi nhớ.
               </p>
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen(true)}
-                className="md:hidden px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-all text-sm cursor-pointer"
+                className="md:hidden px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-md hover:bg-primary-dark transition-all text-sm cursor-pointer"
               >
                 Mở danh sách môn học
               </button>

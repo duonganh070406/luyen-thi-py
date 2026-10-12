@@ -838,7 +838,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     <div>
       {/* Tao ky kiem tra */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
-        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-4">
+        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-primary uppercase tracking-wide mb-4">
           <span className="w-1 h-4 rounded bg-primary inline-block" /> Tạo kỳ kiểm tra
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
@@ -884,7 +884,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-3 mb-1.5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-1.5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Số câu</label>
             <input type="number" min={1} max={200} value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
@@ -900,15 +900,17 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
             <input type="number" min={1} max={20} value={form.max_violations} onChange={(e) => setForm({ ...form, max_violations: Number(e.target.value) })}
               className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
           </div>
+          <div className="flex items-end pb-2">
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600"><input type="checkbox" checked={form.auto_submit} onChange={(e) => setForm({ ...form, auto_submit: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Tự thu bài khi vượt số lần</label>
+          </div>
         </div>
-        <p className="text-[11px] text-slate-400 mb-3">{bankItems.length} câu hiện có trong lựa chọn: {selectedCount}</p>
+        <p className="text-[11px] text-slate-400 mb-3">Số câu hiện có theo lựa chọn: {selectedCount}</p>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-slate-600 border-t border-slate-100">
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_questions} onChange={(e) => setForm({ ...form, shuffle_questions: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Trộn thứ tự câu hỏi</label>
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_options} onChange={(e) => setForm({ ...form, shuffle_options: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Đảo thứ tự phương án</label>
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.show_answers} onChange={(e) => setForm({ ...form, show_answers: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Cho thí sinh xem đáp án sau khi nộp</label>
           <div className="flex-1" />
-          <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.auto_submit} onChange={(e) => setForm({ ...form, auto_submit: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Tự thu bài khi vượt số lần</label>
           <button type="button" onClick={doCreate} disabled={busy} className="px-5 py-2.5 rounded-md bg-primary text-white text-xs font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50 flex items-center gap-1.5">
             <Plus size={14} /> {busy ? 'Đang tạo...' : 'Tạo kỳ kiểm tra'}
           </button>
@@ -919,7 +921,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
 
       {/* Danh sach ky kiem tra */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
-        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-3">
+        <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-primary uppercase tracking-wide mb-3">
           <span className="w-1 h-4 rounded bg-primary inline-block" /> Danh sách kỳ kiểm tra
         </h2>
         <div className="overflow-x-auto -mx-1 px-1">

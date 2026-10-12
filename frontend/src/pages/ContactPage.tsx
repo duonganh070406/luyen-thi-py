@@ -22,11 +22,11 @@ export default function ContactPage() {
 
         <div className="flex flex-col items-center gap-3 text-xs text-slate-800">
           <div className="flex items-center gap-2">
-            <Mail size={16} className="text-[#8B0000]" />
+            <Mail size={16} className="text-primary" />
             <span>Email: <b className="font-semibold text-slate-900">{contact.email}</b></span>
           </div>
           <div className="flex items-center gap-2">
-            <Phone size={16} className="text-[#8B0000]" />
+            <Phone size={16} className="text-primary" />
             <span>Điện thoại: <b className="font-semibold text-slate-900">{contact.phone}</b></span>
           </div>
         </div>

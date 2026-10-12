@@ -48,9 +48,10 @@ export default function ExamRoomPage() {
       .catch(() => setUnits([]));
   }, []);
 
-  // countdown -> tu dong thu bai
+  // countdown -> tu dong thu bai (ke ca truong hop vao phong thi da het gio)
   useEffect(() => {
-    if (!room || done || timeLeft <= 0) return;
+    if (!room || done) return;
+    if (timeLeft <= 0) { void doSubmit(true); return; }
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
     if (timeLeft === 1) void doSubmit(true);
     return () => clearTimeout(t);
@@ -282,7 +283,7 @@ export default function ExamRoomPage() {
               </tbody>
             </table>
           )}
-          <button type="button" onClick={() => navigate('/phong-thi')} className="mt-4 text-xs font-bold text-primary cursor-pointer">← Về trang phòng thi</button>
+          <button type="button" onClick={() => { doneRef.current = false; setDone(null); setDetail([]); setRanking([]); setRoom(null); setQuestions([]); setAnswers({}); setWarn(''); setError(''); navigate('/phong-thi'); }} className="mt-4 text-xs font-bold text-primary cursor-pointer">← Về trang phòng thi</button>
         </div>
       </div>
     );
@@ -290,7 +291,7 @@ export default function ExamRoomPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <div className="sticky top-14 z-30 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3 shadow-sm">
+      <div className="sticky top-12 z-30 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3 shadow-sm">
         <div className="flex-1">
           <div className="text-sm font-bold text-slate-800">{room.name} · {credRef.current.participant}</div>
           <div className="text-xs text-slate-500">Đã làm {Object.keys(answers).length}/{questions.length} · Vi phạm tab {violations}/{maxV} · Tự lưu từng câu</div>
