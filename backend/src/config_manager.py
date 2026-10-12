@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from src.config import BACKEND_DIR
+from src.config import BACKEND_DIR, DATA_ROOT
 from src.utils import write_json_atomic
 
 AI_CONFIG_PATH = BACKEND_DIR / "config" / "ai_config.json"
@@ -94,6 +94,38 @@ def read_ai_config() -> dict[str, Any]:
         return resolved
     except Exception:
         return DEFAULT_AI_CONFIG.copy()
+
+
+DEFAULT_CONTACT = {
+    "email": "hotro@a05.gov.vn",
+    "phone": "0123 456 789",
+}
+
+
+def read_contact() -> dict[str, str]:
+    """Doc thong tin lien he (public). Chua co file -> tra mac dinh."""
+    path = DATA_ROOT / "contact.json"
+    try:
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return {
+                    "email": str(data.get("email", "")).strip() or DEFAULT_CONTACT["email"],
+                    "phone": str(data.get("phone", "")).strip() or DEFAULT_CONTACT["phone"],
+                }
+    except Exception:
+        pass
+    return dict(DEFAULT_CONTACT)
+
+
+def write_contact(contact: dict[str, Any]) -> dict[str, str]:
+    """Luu thong tin lien he (admin)."""
+    cleaned = {
+        "email": str(contact.get("email", "")).strip() or DEFAULT_CONTACT["email"],
+        "phone": str(contact.get("phone", "")).strip() or DEFAULT_CONTACT["phone"],
+    }
+    write_json_atomic(DATA_ROOT / "contact.json", cleaned)
+    return cleaned
 
 
 def write_ai_config(config: dict[str, Any]) -> None:

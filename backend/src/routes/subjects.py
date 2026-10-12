@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from src import auth as auth_store
 from src.config import DATA_ROOT
@@ -113,6 +114,31 @@ def update_ai_config_endpoint(
     config_dict = config.model_dump(mode="json")
     write_ai_config(config_dict)
     return {"ok": True}
+
+
+class ContactModel(BaseModel):
+    email: str = ""
+    phone: str = ""
+
+
+@router.get("/api/config/contact")
+def get_contact_endpoint() -> dict[str, str]:
+    """Thong tin lien he hien tren trang Lien he (public)."""
+    from src.config_manager import read_contact
+
+    return read_contact()
+
+
+@router.put("/api/config/contact")
+def update_contact_endpoint(
+    body: ContactModel,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
+    """Admin sua email / dien thoai lien he."""
+    from src.config_manager import write_contact
+
+    saved = write_contact({"email": body.email, "phone": body.phone})
+    return {"ok": True, **saved}
 
 
 @router.post("/api/config/ai/test")

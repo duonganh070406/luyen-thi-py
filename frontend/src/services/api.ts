@@ -104,6 +104,25 @@ export async function updateAIConfig(config: AIConfig): Promise<{ ok: boolean }>
   });
 }
 
+export interface ContactInfo {
+  email: string;
+  phone: string;
+}
+
+export const DEFAULT_CONTACT: ContactInfo = { email: 'hotro@a05.gov.vn', phone: '0123 456 789' };
+
+export async function getContact(): Promise<ContactInfo> {
+  return fetchJson<ContactInfo>('/api/config/contact');
+}
+
+export async function updateContact(body: ContactInfo): Promise<ContactInfo & { ok: boolean }> {
+  return fetchJson('/api/config/contact', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
 export async function testAIConfig(profile: AIProfile): Promise<{ success: boolean; response: string; error?: string }> {
   return fetchJson<{ success: boolean; response: string; error?: string }>('/api/config/ai/test', {
     method: 'POST',

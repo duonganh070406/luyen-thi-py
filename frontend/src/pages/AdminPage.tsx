@@ -7,6 +7,7 @@ import {
   updateBankQuestion, previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
   getMonitor, getLeaderboard, editScore, listReports, updateReport,
   suggestDifficulty, getBankTopics, exportRoomCsv, getUnits, addUnit, deleteUnit,
+  getContact, updateContact,
 } from '../services/api.ts';
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'units', label: 'Quản lý đơn vị' },
   { id: 'reports', label: 'Báo lỗi' },
   { id: 'ml', label: 'ML độ khó' },
+  { id: 'contact', label: 'Liên hệ' },
 ];
 
 const TAB_IDS = TABS.map((t) => t.id);
@@ -70,6 +72,7 @@ export default function AdminPage() {
       {tab === 'units' && <UnitsTab />}
       {tab === 'reports' && subject && <ReportsTab key={`rp-${subject}`} subject={subject} />}
       {tab === 'ml' && subject && <MlTab key={`ml-${subject}`} subject={subject} />}
+      {tab === 'contact' && <ContactTab />}
     </div>
   );
 }
@@ -538,6 +541,55 @@ function UnitsTab() {
           {units.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có đơn vị nào.</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Thong tin lien he (hien o trang Lien he) ---------------- */
+
+function ContactTab() {
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getContact().then((c) => { setEmail(c.email); setPhone(c.phone); }).catch((e) => setMsg(String(e)));
+  }, []);
+
+  const doSave = async () => {
+    if (!email.trim() || !phone.trim()) { setMsg('Cần nhập cả email và điện thoại.'); return; }
+    setBusy(true);
+    try {
+      const r = await updateContact({ email: email.trim(), phone: phone.trim() });
+      setEmail(r.email);
+      setPhone(r.phone);
+      setMsg('Đã lưu thông tin liên hệ.');
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 max-w-xl">
+      <h2 className="font-bold text-sm text-slate-800 mb-1">Thông tin liên hệ</h2>
+      <p className="text-[11px] text-slate-500 mb-3">Hiển thị ở trang Liên hệ cho mọi người xem.</p>
+      {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
+      <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+      <input
+        value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vd: hotro@a05.gov.vn"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 mb-3"
+      />
+      <label className="block text-xs font-bold text-slate-700 mb-1">Điện thoại</label>
+      <input
+        value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="vd: 0123 456 789"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 mb-4"
+      />
+      <button type="button" onClick={doSave} disabled={busy} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer hover:bg-indigo-700 disabled:opacity-50">
+        {busy ? 'Đang lưu...' : 'Lưu liên hệ'}
+      </button>
     </div>
   );
 }
