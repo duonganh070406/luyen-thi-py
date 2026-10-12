@@ -1,14 +1,20 @@
-"""Xac thuc don gian cho EduQuest: admin + user, token Bearer.
+"""Xac thuc cho EduQuest: admin + user, token Bearer.
 
 Luu tru flat-file de chay local khong can DB:
 - DATA_ROOT/users.json   : [{username, password_hash, role, created_at}]
-- DATA_ROOT/tokens.json  : {token: {username, role, created_at}}
+- DATA_ROOT/tokens.json  : {token: {username, role, created_at, expires_at}}
 
-Mat khau hash SHA256 + salt don gian. Du cho chay local.
+Bao mat:
+- Mat khau hash PBKDF2-HMAC-SHA256 200k vong + salt rieng/user.
+  Hash cu (SHA256 don gian) van verify duoc va tu dong rehash khi login.
+- Khoa dang nhap 5 phut sau 5 lan sai lien tiep (luu file, restart khong mat).
+- Phien dang nhap het han sau 12 gio.
+- Tai khoan con dung mat khau mac dinh admin123 bi bat doi mat khau.
 """
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import secrets
 import time
@@ -22,6 +28,10 @@ from pydantic import BaseModel
 from src.config import DATA_ROOT
 
 _SALT = "eduquest-local-salt-v1"
+_PBKDF2_ITER = 200_000
+_SESSION_TTL = 12 * 3600
+_MAX_FAILS = 5
+_LOCK_SECS = 5 * 60
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -33,8 +43,40 @@ def _tokens_path() -> Path:
     return DATA_ROOT / "tokens.json"
 
 
-def hash_password(password: str) -> str:
+def _attempts_path() -> Path:
+    return DATA_ROOT / "login_attempts.json"
+
+
+def _legacy_hash(password: str) -> str:
     return hashlib.sha256((_SALT + password).encode("utf-8")).hexdigest()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", (password or "").encode("utf-8"), salt.encode("utf-8"), _PBKDF2_ITER)
+    return f"pbkdf2${_PBKDF2_ITER}${salt}${dk.hex()}"
+
+
+def needs_rehash(stored: str) -> bool:
+    return not (stored or "").startswith("pbkdf2$")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    stored = password_hash or ""
+    if stored.startswith("pbkdf2$"):
+        try:
+            _, iters, salt, hexd = stored.split("$")
+            dk = hashlib.pbkdf2_hmac("sha256", (password or "").encode("utf-8"), salt.encode("utf-8"), int(iters))
+            return hmac.compare_digest(dk.hex(), hexd)
+        except Exception:
+            return False
+    # hash cu (SHA256 + salt tinh): van chap nhan de tu rehash khi login
+    return hmac.compare_digest(_legacy_hash(password or ""), stored)
+
+
+def is_default_admin_password(stored: str) -> bool:
+    """Tai khoan con dung mat khau mac dinh admin123?"""
+    return hmac.compare_digest(_legacy_hash("admin123"), stored or "")
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -122,8 +164,62 @@ def create_user(username: str, password: str, role: str = "user") -> dict[str, A
     return {"username": name, "role": role}
 
 
-def verify_password(password: str, password_hash: str) -> bool:
-    return hash_password(password or "") == (password_hash or "")
+def _load_attempts() -> dict[str, Any]:
+    data = _read_json(_attempts_path(), {})
+    return data if isinstance(data, dict) else {}
+
+
+def lock_remaining(username: str) -> int:
+    """So giay con lai bi khoa (0 = khong bi khoa). Het han tu mo."""
+    try:
+        rec = _load_attempts().get((username or "").strip(), {})
+        until = int(rec.get("locked_until", 0))
+        return max(0, until - int(time.time()))
+    except Exception:
+        return 0
+
+
+def record_failed_login(username: str) -> int:
+    """Ghi 1 lan sai. Tra ve so giay bi khoa (0 neu chua den nguong)."""
+    name = (username or "").strip()
+    if not name:
+        return 0
+    data = _load_attempts()
+    rec = data.get(name, {})
+    if not isinstance(rec, dict):
+        rec = {}
+    fails = int(rec.get("fails", 0)) + 1
+    rec["fails"] = fails
+    locked_for = 0
+    if fails >= _MAX_FAILS:
+        rec["locked_until"] = int(time.time()) + _LOCK_SECS
+        locked_for = _LOCK_SECS
+    data[name] = rec
+    _write_json(_attempts_path(), data)
+    return locked_for
+
+
+def reset_failed_login(username: str) -> None:
+    name = (username or "").strip()
+    if not name:
+        return
+    data = _load_attempts()
+    if name in data:
+        del data[name]
+        _write_json(_attempts_path(), data)
+
+
+def rehash_password(username: str, password: str) -> None:
+    """Nang cap hash cu -> PBKDF2 sau khi login thanh cong."""
+    users = _read_json(_users_path(), [])
+    changed = False
+    for u in users:
+        if isinstance(u, dict) and u.get("username") == username:
+            if needs_rehash(str(u.get("password_hash", ""))):
+                u["password_hash"] = hash_password(password)
+                changed = True
+    if changed:
+        _write_json(_users_path(), users)
 
 
 def issue_token(username: str, role: str) -> str:
@@ -131,7 +227,8 @@ def issue_token(username: str, role: str) -> str:
     if not isinstance(tokens, dict):
         tokens = {}
     token = secrets.token_urlsafe(32)
-    tokens[token] = {"username": username, "role": role, "created_at": int(time.time())}
+    now = int(time.time())
+    tokens[token] = {"username": username, "role": role, "created_at": now, "expires_at": now + _SESSION_TTL}
     _write_json(_tokens_path(), tokens)
     return token
 
@@ -143,13 +240,51 @@ def revoke_token(token: str) -> None:
         _write_json(_tokens_path(), tokens)
 
 
+def revoke_user_tokens(username: str) -> None:
+    """Thu hoi TOAN BO phien cua 1 user (dung khi doi mat khau)."""
+    tokens = _read_json(_tokens_path(), {})
+    if not isinstance(tokens, dict):
+        return
+    kept = {t: i for t, i in tokens.items() if not isinstance(i, dict) or i.get("username") != username}
+    if len(kept) != len(tokens):
+        _write_json(_tokens_path(), kept)
+
+
+def set_password(username: str, new_password: str) -> None:
+    users = _read_json(_users_path(), [])
+    found = False
+    for u in users:
+        if isinstance(u, dict) and u.get("username") == username:
+            u["password_hash"] = hash_password(new_password)
+            found = True
+    if not found:
+        raise ValueError("Không tìm thấy tài khoản.")
+    _write_json(_users_path(), users)
+    revoke_user_tokens(username)
+
+
 def lookup_token(token: str) -> dict[str, Any] | None:
     tokens = _read_json(_tokens_path(), {})
-    if isinstance(tokens, dict):
-        info = tokens.get(token)
-        if isinstance(info, dict):
-            return info
-    return None
+    if not isinstance(tokens, dict):
+        return None
+    info = tokens.get(token)
+    if not isinstance(info, dict):
+        return None
+    now = int(time.time())
+    exp = info.get("expires_at")
+    if exp is None:
+        # token cu (truoc khi co TTL): cho song them 12h ke tu bay gio
+        info["expires_at"] = now + _SESSION_TTL
+        _write_json(_tokens_path(), tokens)
+        return info
+    try:
+        if now > int(exp):
+            del tokens[token]
+            _write_json(_tokens_path(), tokens)
+            return None
+    except Exception:
+        return None
+    return info
 
 
 class AuthUser(BaseModel):

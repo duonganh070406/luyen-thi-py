@@ -27,21 +27,68 @@ def register(body: RegisterBody):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     token = auth_store.issue_token(user["username"], user["role"])
-    return {"ok": True, "token": token, "username": user["username"], "role": user["role"]}
+    return {"ok": True, "token": token, "username": user["username"], "role": user["role"], "must_change_password": False}
 
 
 @router.post("/api/auth/login")
 def login(body: LoginBody):
-    u = auth_store.find_user(body.username)
+    name = (body.username or "").strip()
+    remaining = auth_store.lock_remaining(name)
+    if remaining > 0:
+        m, s = divmod(remaining, 60)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Tài khoản bị khóa {m} phút {s} giây vì nhập sai quá 5 lần. Hãy thử lại sau.",
+        )
+    u = auth_store.find_user(name)
     if not u or not auth_store.verify_password(body.password, u.get("password_hash", "")):
+        locked_for = auth_store.record_failed_login(name)
+        if locked_for > 0:
+            raise HTTPException(status_code=403, detail="Nhập sai quá 5 lần. Tài khoản bị khóa 5 phút.")
         raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu.")
+    auth_store.reset_failed_login(name)
+    # tu nang cap hash cu -> PBKDF2
+    try:
+        auth_store.rehash_password(u["username"], body.password)
+    except Exception:
+        pass
+    stored = auth_store.find_user(name) or u
+    must_change = auth_store.is_default_admin_password(str(stored.get("password_hash", "")))
     token = auth_store.issue_token(u["username"], u.get("role", "user"))
-    return {"ok": True, "token": token, "username": u["username"], "role": u.get("role", "user")}
+    return {
+        "ok": True,
+        "token": token,
+        "username": u["username"],
+        "role": u.get("role", "user"),
+        "must_change_password": must_change,
+    }
 
 
 @router.get("/api/auth/me")
 def me(user: auth_store.AuthUser = Depends(auth_store.get_current_user)):
-    return {"username": user.username, "role": user.role}
+    u = auth_store.find_user(user.username) or {}
+    must_change = auth_store.is_default_admin_password(str(u.get("password_hash", "")))
+    return {"username": user.username, "role": user.role, "must_change_password": must_change}
+
+
+class ChangePasswordBody(BaseModel):
+    old_password: str = ""
+    new_password: str = ""
+
+
+@router.put("/api/auth/password")
+def change_password(body: ChangePasswordBody, user: auth_store.AuthUser = Depends(auth_store.get_current_user)):
+    """Doi mat khau. Doi xong thu hoi het phien cu -> phai dang nhap lai."""
+    u = auth_store.find_user(user.username)
+    if not u or not auth_store.verify_password(body.old_password or "", u.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Mật khẩu hiện tại không đúng.")
+    if not (body.new_password or "") or len(body.new_password) < 3:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải từ 3 ký tự trở lên.")
+    try:
+        auth_store.set_password(user.username, body.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
 
 
 @router.post("/api/auth/logout")

@@ -123,7 +123,13 @@ def read_json_list(path: Path) -> list[Any]:
 
 
 def write_json_atomic(path: Path, payload: Any) -> None:
-    """Write data to a JSON file atomically using a temporary file."""
+    """Write data to a JSON file atomically using a temporary file.
+
+    Tren Windows, rename khi file dich dang mo (thread khac doc/ghi
+    cung luc) co the bi PermissionError -> thu lai vai lan.
+    """
+    import time as _time
+
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
         dir=path.parent,
@@ -135,7 +141,16 @@ def write_json_atomic(path: Path, payload: Any) -> None:
             json.dump(payload, f, ensure_ascii=False, indent=2)
             f.flush()
             os.fsync(f.fileno())
-        Path(tmp_name).replace(path)
+        last_err: Exception | None = None
+        for attempt in range(10):
+            try:
+                Path(tmp_name).replace(path)
+                return
+            except PermissionError as e:
+                last_err = e
+                _time.sleep(0.005 * (attempt + 1))
+        assert last_err is not None
+        raise last_err
     except Exception:
         try:
             Path(tmp_name).unlink(missing_ok=True)

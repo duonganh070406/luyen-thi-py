@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from src.config import DATA_ROOT, get_cors_origins
 from src.routes import auth, bank, browse, health, rooms, subjects
@@ -28,8 +27,8 @@ try:
 except Exception:
     pass
 
-if DATA_ROOT.is_dir():
-    app.mount("/data", StaticFiles(directory=DATA_ROOT, html=False), name="data")
+# KHONG mount StaticFiles /data public nua (lo hash mat khau + dap an + bai thi).
+# File anh public + file nhay cam chi admin qua GET /data/{path} trong browse router.
 
 app.include_router(health.router)
 app.include_router(auth.router)

@@ -193,6 +193,15 @@ export interface AuthResult {
   token: string;
   username: string;
   role: string;
+  must_change_password?: boolean;
+}
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+  return fetchJson<{ ok: boolean }>('/api/auth/password', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  });
 }
 
 export async function login(username: string, password: string): Promise<AuthResult> {

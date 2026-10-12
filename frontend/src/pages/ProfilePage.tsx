@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, User as UserIcon, LogOut, Loader2 } from 'lucide-react';
-import { currentUser, fetchMe, logout } from '../services/api.ts';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ShieldCheck, User as UserIcon, LogOut, Loader2, KeyRound } from 'lucide-react';
+import { changePassword, currentUser, fetchMe, logout } from '../services/api.ts';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [params] = useSearchParams();
+  const [user, setUser] = useState<{ username: string; role: string; must_change_password?: boolean } | null>(null);
   const [checking, setChecking] = useState(true);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [passMsg, setPassMsg] = useState('');
+  const [savingPass, setSavingPass] = useState(false);
 
   useEffect(() => {
     const local = currentUser();
@@ -33,6 +39,27 @@ export default function ProfilePage() {
     logout();
     window.dispatchEvent(new Event('eq-auth'));
     navigate('/');
+  };
+
+  const doChangePassword = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setPassMsg('');
+    if (newPass !== confirmPass) {
+      setPassMsg('Mật khẩu mới nhập lại không khớp.');
+      return;
+    }
+    setSavingPass(true);
+    try {
+      await changePassword(oldPass, newPass);
+      // doi xong thu hoi het phien -> dang nhap lai
+      logout();
+      window.dispatchEvent(new Event('eq-auth'));
+      navigate('/dang-nhap');
+    } catch (err) {
+      setPassMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingPass(false);
+    }
   };
 
   if (checking) {
@@ -80,7 +107,42 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-2">
+        {(user.must_change_password || params.get('doi-mat-khau') === '1') && (
+          <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-left">
+            Tài khoản đang dùng mật khẩu mặc định <b>admin123</b>. Bạn phải đổi mật khẩu mới để tiếp tục.
+          </p>
+        )}
+
+        <form onSubmit={doChangePassword} className="mt-4 text-left rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+          <h2 className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-3">
+            <KeyRound size={15} /> Đổi mật khẩu
+          </h2>
+          <label className="block text-xs font-bold text-slate-600 mb-1">Mật khẩu hiện tại</label>
+          <input
+            type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-2"
+          />
+          <label className="block text-xs font-bold text-slate-600 mb-1">Mật khẩu mới (tối thiểu 3 ký tự)</label>
+          <input
+            type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-2"
+          />
+          <label className="block text-xs font-bold text-slate-600 mb-1">Nhập lại mật khẩu mới</label>
+          <input
+            type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-white focus:border-[#8B0000] mb-3"
+          />
+          {passMsg && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{passMsg}</p>}
+          <button
+            type="submit"
+            disabled={savingPass || !oldPass || !newPass}
+            className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold cursor-pointer hover:bg-slate-700 disabled:opacity-50"
+          >
+            {savingPass ? 'Đang đổi...' : 'Đổi mật khẩu (sẽ đăng nhập lại)'}
+          </button>
+        </form>
+
+        <div className="mt-4 flex flex-col gap-2">
           {isAdmin && (
             <button
               type="button"

@@ -845,10 +845,11 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
               <div className="flex flex-col gap-1.5 max-h-56 overflow-auto mb-3">
                 {monitor.participants?.map((p: any) => (
                   <div key={p.participant} className="text-xs rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 flex items-center gap-2">
-                    <b className="flex-1 truncate">{p.participant}</b>
+                    <b className="flex-1 truncate">{p.participant}{p.unit ? ` · ${p.unit}` : ''}</b>
                     <span>{p.answered}/{p.total} câu</span>
                     <span>điểm hiện tại <b>{p.current_score}</b></span>
                     {p.violations > 0 && <span className="text-amber-600 font-bold">tab ×{p.violations}</span>}
+                    {(p.joins ?? 1) > 1 && <span className="text-sky-600 font-bold">vào lại ×{p.joins}</span>}
                     <span className={p.submitted ? 'text-green-600 font-bold' : 'text-slate-400'}>{p.submitted ? 'Đã nộp' : 'Đang làm'}</span>
                   </div>
                 ))}

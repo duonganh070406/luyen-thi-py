@@ -17,7 +17,11 @@ export default function LoginPage() {
     try {
       const r = await login(username.trim(), password);
       window.dispatchEvent(new Event('eq-auth'));
-      navigate(r.role === 'admin' ? '/admin' : '/luyen-thi');
+      if (r.must_change_password) {
+        navigate('/profile?doi-mat-khau=1');
+      } else {
+        navigate(r.role === 'admin' ? '/admin' : '/luyen-thi');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

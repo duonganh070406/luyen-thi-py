@@ -1,14 +1,19 @@
 """Luu tru phong thi online (flat-file, chay local).
 
-- DATA_ROOT/rooms.json         : list[room]
-- DATA_ROOT/room_sessions.json : list[session]
+- DATA_ROOT/rooms.json                 : list[room]
+- DATA_ROOT/room_sessions/<room>/<f>.json : MOI THI SINH 1 FILE rieng
+  (file cu room_sessions.json van duoc doc de tuong thich nguoc)
+- DATA_ROOT/room_sessions.json         : legacy, chi doc (khong ghi moi)
 
 Room: id, code, name, subject, topics, difficulty, count, time_limit,
       shuffle_questions, shuffle_options, status(open|closed),
       created_by, created_at, max_violations
 Session: room_id, participant, ticket, questions(list quiz item day du,
-      chi luu server), answers, violations, joined_at, deadline,
+      chi luu server), answers, violations, joins, joined_at, deadline,
       updated_at, submitted, submitted_at, score, total
+
+Chong mat bai dong thoi: moi session 1 file + ghi atomic (rename),
+nhieu thi sinh nop/luu cung luc khong de len nhau.
 
 Chong gian lan:
 - Dap an dung KHONG bao gio gui cho client truoc khi nop bai.
@@ -18,11 +23,15 @@ Chong gian lan:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import secrets
 import string
+import threading
 import time
-from typing import Any
+import urllib.parse
+from typing import Any, Callable
 
 from src.bank import pick_with_mix, shuffle_options, unified_questions
 from src.config import DATA_ROOT
@@ -34,7 +43,27 @@ def _rooms_path():
 
 
 def _sessions_path():
+    # legacy: giu de doc tuong thich, khong ghi moi vao day nua
     return DATA_ROOT / "room_sessions.json"
+
+
+def _sessions_dir(room_id: str):
+    return DATA_ROOT / "room_sessions" / str(room_id)
+
+
+def _session_filename(participant: str) -> str:
+    name = (participant or "").strip()
+    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
+    safe = urllib.parse.quote(name, safe="")[:80] or "unknown"
+    return f"{safe}_{digest}.json"
+
+
+def _read_session_file(path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
 
 
 def load_rooms() -> list[dict[str, Any]]:
@@ -45,12 +74,95 @@ def save_rooms(rooms: list[dict[str, Any]]) -> None:
     write_json_atomic(_rooms_path(), rooms)
 
 
+def load_session(room_id: str, participant: str) -> dict[str, Any] | None:
+    """Doc 1 session (file rieng uu tien, roi den file legacy gop)."""
+    name = (participant or "").strip()
+    p = _sessions_dir(room_id) / _session_filename(name)
+    if p.is_file():
+        s = _read_session_file(p)
+        if s:
+            return s
+    for s in read_json_list(_sessions_path()):
+        if isinstance(s, dict) and s.get("room_id") == room_id and s.get("participant") == name:
+            return s
+    return None
+
+
+def save_session(sess: dict[str, Any]) -> None:
+    """Ghi 1 session ra file rieng (atomic)."""
+    d = _sessions_dir(str(sess.get("room_id", "")))
+    d.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(d / _session_filename(str(sess.get("participant", ""))), sess)
+
+
+_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(room_id: str, participant: str) -> threading.Lock:
+    key = f"{room_id}\u0000{(participant or '').strip()}"
+    with _LOCKS_GUARD:
+        lock = _LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _LOCKS[key] = lock
+        return lock
+
+
+def update_session(room_id: str, participant: str, fn: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    """Doc -> sua -> ghi 1 session DUOI KHOA (chong mat bai khi luu dong thoi).
+
+    Tra ve session sau khi sua. Raise ValueError neu chua join.
+    Moi exception khac do fn gay ra duoc giu nguyen de route xu ly.
+    """
+    name = (participant or "").strip()
+    with _lock_for(room_id, name):
+        s = load_session(room_id, name)
+        if s is None:
+            raise ValueError("Chưa join phòng.")
+        fn(s)
+        save_session(s)
+        return s
+
+
+def sessions_of(room_id: str) -> list[dict[str, Any]]:
+    """Tat ca session cua 1 phong (file rieng + legacy, rieng thang khi trung)."""
+    out: dict[str, dict[str, Any]] = {}
+    for s in read_json_list(_sessions_path()):
+        if isinstance(s, dict) and s.get("room_id") == room_id and s.get("participant"):
+            out[str(s.get("participant"))] = s
+    d = _sessions_dir(room_id)
+    if d.is_dir():
+        for p in sorted(d.glob("*.json")):
+            s = _read_session_file(p)
+            if s and s.get("participant"):
+                out[str(s.get("participant"))] = s
+    return list(out.values())
+
+
 def load_sessions() -> list[dict[str, Any]]:
-    return [s for s in read_json_list(_sessions_path()) if isinstance(s, dict)]
+    """Gop session MOI phong (chu yeu cho giam sat/BXH xuat bao cao)."""
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for s in read_json_list(_sessions_path()):
+        if isinstance(s, dict) and s.get("room_id") and s.get("participant"):
+            out[(str(s["room_id"]), str(s["participant"]))] = s
+    base = DATA_ROOT / "room_sessions"
+    if base.is_dir():
+        for room_dir in sorted(base.iterdir()):
+            if not room_dir.is_dir():
+                continue
+            for p in sorted(room_dir.glob("*.json")):
+                s = _read_session_file(p)
+                if s and s.get("room_id") and s.get("participant"):
+                    out[(str(s["room_id"]), str(s["participant"]))] = s
+    return list(out.values())
 
 
 def save_sessions(sessions: list[dict[str, Any]]) -> None:
-    write_json_atomic(_sessions_path(), sessions)
+    """Ghi nhieu session (moi cai 1 file). Giu tuong thich ham cu."""
+    for s in sessions:
+        if isinstance(s, dict) and s.get("room_id") and s.get("participant"):
+            save_session(s)
 
 
 def _new_code(existing: set[str]) -> str:
@@ -207,41 +319,46 @@ def join_room(code: str, participant: str, unit: str = "") -> tuple[dict[str, An
     if not name:
         raise ValueError("Vui lòng nhập tên để vào thi.")
     unit_name = (unit or "").strip()
-    sessions = load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room["id"] and s.get("participant") == name:
+    with _lock_for(room["id"], name):
+        s = load_session(room["id"], name)
+        if s is not None:
             # Vao lai: session da nop van xem duoc ket qua ke ca phong da dong.
-            # Xoay ticket moi de chi 1 tab trinh duyet duoc phep lam bai.
+            # Xoay ticket moi de chi 1 tab trinh duyet duoc phep lam bai
+            # (phien cu tren may/tab khac mat hieu luc ngay).
             s["ticket"] = secrets.token_urlsafe(24)
             s["updated_at"] = int(time.time())
             s["unit"] = unit_name
+            try:
+                s["joins"] = int(s.get("joins") or 1) + 1
+            except Exception:
+                s["joins"] = 2
             if not s.get("submitted") and (room.get("status") != "open" or is_expired(room, s)):
                 finalize_session(s)
-            save_sessions(sessions)
+            save_session(s)
             return room, s
-    if room.get("status") != "open":
-        raise ValueError("Phòng thi đã đóng.")
-    questions = build_questions_for_participant(room)
-    now = int(time.time())
-    sess = {
-        "room_id": room["id"],
-        "participant": name,
-        "unit": unit_name,
-        "ticket": secrets.token_urlsafe(24),
-        "questions": questions,
-        "answers": {},
-        "violations": 0,
-        "joined_at": now,
-        "deadline": now + max(1, int(room.get("time_limit") or 30)) * 60,
-        "updated_at": now,
-        "submitted": False,
-        "submitted_at": None,
-        "score": 0,
-        "total": len(questions),
-    }
-    sessions.append(sess)
-    save_sessions(sessions)
-    return room, sess
+        if room.get("status") != "open":
+            raise ValueError("Phòng thi đã đóng.")
+        questions = build_questions_for_participant(room)
+        now = int(time.time())
+        sess = {
+            "room_id": room["id"],
+            "participant": name,
+            "unit": unit_name,
+            "ticket": secrets.token_urlsafe(24),
+            "questions": questions,
+            "answers": {},
+            "violations": 0,
+            "joins": 1,
+            "joined_at": now,
+            "deadline": now + max(1, int(room.get("time_limit") or 30)) * 60,
+            "updated_at": now,
+            "submitted": False,
+            "submitted_at": None,
+            "score": 0,
+            "total": len(questions),
+        }
+        save_session(sess)
+        return room, sess
 
 
 def check_ticket(sess: dict[str, Any], ticket: str) -> None:
@@ -254,7 +371,7 @@ def check_ticket(sess: dict[str, Any], ticket: str) -> None:
 
 
 def leaderboard(room_id: str) -> list[dict[str, Any]]:
-    rows = [s for s in load_sessions() if s.get("room_id") == room_id]
+    rows = sessions_of(room_id)
     out = []
     for s in rows:
         answers = s.get("answers") or {}
@@ -266,10 +383,12 @@ def leaderboard(room_id: str) -> list[dict[str, Any]]:
         out.append(
             {
                 "participant": s.get("participant"),
+                "unit": s.get("unit", ""),
                 "score": score,
                 "total": total,
                 "answered": len(answers),
                 "violations": s.get("violations", 0),
+                "joins": int(s.get("joins") or 1),
                 "submitted": bool(s.get("submitted")),
                 "submitted_at": s.get("submitted_at"),
                 "updated_at": s.get("updated_at"),

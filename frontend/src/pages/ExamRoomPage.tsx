@@ -87,6 +87,15 @@ export default function ExamRoomPage() {
   const doJoin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError('');
+    if (!name.trim()) {
+      setError('Vui lòng nhập họ tên.');
+      return;
+    }
+    // Thi sinh xac dinh bang ho ten + don vi: bat buoc chon khi da co danh sach
+    if (units.length > 0 && !unit.trim()) {
+      setError('Vui lòng chọn đơn vị.');
+      return;
+    }
     try {
       const r = await joinRoom(code.trim().toUpperCase(), name.trim(), unit.trim());
       setRoom(r.room);

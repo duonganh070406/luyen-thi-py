@@ -88,11 +88,10 @@ def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     room["status"] = "closed"
     store.save_rooms(rooms)
-    sessions = store.load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room_id and not s.get("submitted"):
+    for s in store.sessions_of(room_id):
+        if not s.get("submitted"):
             store.finalize_session(s)
-    store.save_sessions(sessions)
+            store.save_session(s)
     return {"ok": True}
 
 
@@ -134,25 +133,6 @@ class AnswerBody(BaseModel):
     answer: Any = None
 
 
-def _find_session(room: dict[str, Any], participant: str) -> dict[str, Any] | None:
-    sessions = store.load_sessions()
-    for s in sessions:
-        if s.get("room_id") == room["id"] and s.get("participant") == (participant or "").strip():
-            return s
-    return None
-
-
-def _save_session(updated: dict[str, Any]) -> None:
-    sessions = store.load_sessions()
-    for i, s in enumerate(sessions):
-        if s.get("room_id") == updated.get("room_id") and s.get("participant") == updated.get("participant"):
-            sessions[i] = updated
-            break
-    else:
-        sessions.append(updated)
-    store.save_sessions(sessions)
-
-
 def _check_ticket_or_403(sess: dict[str, Any], ticket: str) -> None:
     try:
         store.check_ticket(sess, ticket)
@@ -166,22 +146,24 @@ def save_answer(body: AnswerBody):
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    s = _find_session(room, body.participant)
-    if not s:
+
+    def _apply(s: dict[str, Any]) -> None:
+        _check_ticket_or_403(s, body.ticket)
+        if store.is_expired(room, s):
+            store.finalize_session(s)
+            raise HTTPException(status_code=400, detail="Hết giờ làm bài. Bài thi đã tự động thu.")
+        if s.get("submitted"):
+            raise HTTPException(status_code=400, detail="Bài thi đã nộp.")
+        answers = dict(s.get("answers") or {})
+        answers[str(body.question_id)] = body.answer
+        s["answers"] = answers
+        s["updated_at"] = int(time.time())
+
+    try:
+        s = store.update_session(room["id"], body.participant, _apply)
+    except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
-    _check_ticket_or_403(s, body.ticket)
-    if store.is_expired(room, s):
-        store.finalize_session(s)
-        _save_session(s)
-        raise HTTPException(status_code=400, detail="Hết giờ làm bài. Bài thi đã tự động thu.")
-    if s.get("submitted"):
-        raise HTTPException(status_code=400, detail="Bài thi đã nộp.")
-    answers = dict(s.get("answers") or {})
-    answers[str(body.question_id)] = body.answer
-    s["answers"] = answers
-    s["updated_at"] = int(time.time())
-    _save_session(s)
-    return {"ok": True, "answered": len(answers)}
+    return {"ok": True, "answered": len(s.get("answers") or {})}
 
 
 class ViolationBody(BaseModel):
@@ -196,22 +178,29 @@ def report_violation(body: ViolationBody):
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    s = _find_session(room, body.participant)
-    if not s:
-        raise HTTPException(status_code=404, detail="Chưa join phòng.")
-    _check_ticket_or_403(s, body.ticket)
-    if s.get("submitted"):
-        return {"ok": True, "submitted": True, "violations": s.get("violations", 0)}
-    if store.is_expired(room, s):
-        store.finalize_session(s)
-        _save_session(s)
-        return {"ok": True, "violations": s.get("violations", 0), "submitted": True, "max": int(room.get("max_violations") or 3), "expired": True}
-    s["violations"] = int(s.get("violations", 0)) + 1
-    s["updated_at"] = int(time.time())
     maxv = int(room.get("max_violations") or 3)
-    # Chi dem, khong tu dong thu khi vuot gioi han
-    _save_session(s)
-    return {"ok": True, "violations": s["violations"], "submitted": bool(s.get("submitted")), "max": maxv}
+    just_expired = False
+
+    def _apply(s: dict[str, Any]) -> None:
+        nonlocal just_expired
+        _check_ticket_or_403(s, body.ticket)
+        if s.get("submitted"):
+            return
+        if store.is_expired(room, s):
+            store.finalize_session(s)
+            just_expired = True
+            return
+        s["violations"] = int(s.get("violations", 0)) + 1
+        s["updated_at"] = int(time.time())
+        # Chi dem, khong tu dong thu khi vuot gioi han
+
+    try:
+        s = store.update_session(room["id"], body.participant, _apply)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Chưa join phòng.")
+    if just_expired:
+        return {"ok": True, "violations": s.get("violations", 0), "submitted": True, "max": maxv, "expired": True}
+    return {"ok": True, "violations": s.get("violations", 0), "submitted": bool(s.get("submitted")), "max": maxv}
 
 
 class SubmitBody(BaseModel):
@@ -226,13 +215,16 @@ def submit(body: SubmitBody):
     room = store.get_room_by_code(body.code)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    s = _find_session(room, body.participant)
-    if not s:
+
+    def _apply(s: dict[str, Any]) -> None:
+        _check_ticket_or_403(s, body.ticket)
+        if not s.get("submitted"):
+            store.finalize_session(s)
+
+    try:
+        s = store.update_session(room["id"], body.participant, _apply)
+    except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
-    _check_ticket_or_403(s, body.ticket)
-    if not s.get("submitted"):
-        store.finalize_session(s)
-        _save_session(s)
     return {
         "ok": True,
         "score": s.get("score", 0),
@@ -247,19 +239,20 @@ def monitor(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_ad
     room = store.get_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    sessions = [s for s in store.load_sessions() if s.get("room_id") == room_id]
     rows = []
-    for s in sessions:
+    for s in store.sessions_of(room_id):
         answers = s.get("answers") or {}
         total = len(s.get("questions") or [])
         score, _ = store.grade_session(s.get("questions") or [], answers)
         rows.append(
             {
                 "participant": s.get("participant"),
+                "unit": s.get("unit", ""),
                 "answered": len(answers),
                 "total": total,
                 "current_score": score,
                 "violations": s.get("violations", 0),
+                "joins": int(s.get("joins") or 1),
                 "submitted": bool(s.get("submitted")),
                 "joined_at": s.get("joined_at"),
                 "updated_at": s.get("updated_at"),
@@ -286,20 +279,18 @@ class ScoreEditBody(BaseModel):
 @router.put("/api/rooms/{room_id}/leaderboard")
 def edit_leaderboard(room_id: str, body: ScoreEditBody, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
     """Quan tri vien sua diem thi sinh tren bang xep hang."""
-    sessions = store.load_sessions()
-    found = False
-    for s in sessions:
-        if s.get("room_id") == room_id and s.get("participant") == (body.participant or "").strip():
-            s["score"] = max(0, int(body.score))
-            s["submitted"] = True
-            if not s.get("submitted_at"):
-                s["submitted_at"] = int(time.time())
-            s["updated_at"] = int(time.time())
-            s["manual_edit"] = True
-            found = True
-    if not found:
+    def _apply(s: dict[str, Any]) -> None:
+        s["score"] = max(0, int(body.score))
+        s["submitted"] = True
+        if not s.get("submitted_at"):
+            s["submitted_at"] = int(time.time())
+        s["updated_at"] = int(time.time())
+        s["manual_edit"] = True
+
+    try:
+        store.update_session(room_id, (body.participant or "").strip(), _apply)
+    except ValueError:
         raise HTTPException(status_code=404, detail="Không tìm thấy thí sinh.")
-    store.save_sessions(sessions)
     return {"ok": True}
 
 
@@ -313,9 +304,9 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Phong thi", room.get("name", ""), "Ma", room.get("code", ""), "Mon", room.get("subject", "")])
-    w.writerow(["Hang", "Thi sinh", "Diem", "Tong", "Da lam", "Vi pham tab", "Da nop"])
+    w.writerow(["Hang", "Thi sinh", "Don vi", "Diem", "Tong", "Da lam", "Vi pham tab", "So lan vao", "Da nop"])
     for i, r in enumerate(ranking, start=1):
-        w.writerow([i, r["participant"], r["score"], r["total"], r["answered"], r["violations"], "Co" if r["submitted"] else "Chua"])
+        w.writerow([i, r["participant"], r.get("unit", ""), r["score"], r["total"], r["answered"], r["violations"], r.get("joins", 1), "Co" if r["submitted"] else "Chua"])
     return PlainTextResponse(buf.getvalue(), media_type="text/csv; charset=utf-8")
 
 
