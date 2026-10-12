@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   HelpCircle,
@@ -39,6 +39,7 @@ export default function FlashcardView({
   setState,
 }: FlashcardViewProps) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Parse frontPercent from URL query params: ?frontPercent=50
   const parsedFrontPercent = useMemo(() => {
@@ -280,9 +281,8 @@ Hãy đưa ra phản hồi ngắn gọn bằng tiếng Việt:
           attempts: [...prev.attempts, newAttempt],
         }));
 
-        // Redirect to history detail view
-        window.location.hash = ''; // Ensure no hash interferes with path routing
-        window.location.pathname = `/subject/${subjectId}/history/${attemptId}`;
+        // Dieu huong SPA (HashRouter): khong reload trang
+        navigate(`/subject/${encodeURIComponent(subjectId)}/history/${encodeURIComponent(attemptId)}`);
       } else {
         alert("Lỗi khi ghi lịch sử học tập.");
       }

@@ -24,7 +24,8 @@ export default function ExamRoomPage() {
   const [error, setError] = useState('');
   const [warn, setWarn] = useState('');
   const doneRef = useRef(false);
-  const credRef = useRef({ code: '', participant: '', ticket: '' });
+  const credRef = useRef({ code: '', participant: '', ticket: '', idNumber: '' });
+  const lastViolRef = useRef(0);
 
   // restore session
   useEffect(() => {
@@ -35,7 +36,8 @@ export default function ExamRoomPage() {
         if (s.code && s.participant) {
           setCode(s.code);
           setName(s.participant);
-          credRef.current = { code: s.code, participant: s.participant, ticket: s.ticket || '' };
+          if (s.idNumber) setIdNumber(s.idNumber);
+          credRef.current = { code: s.code, participant: s.participant, ticket: s.ticket || '', idNumber: s.idNumber || '' };
         }
       } catch { /* ignore */ }
     }
@@ -58,13 +60,17 @@ export default function ExamRoomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, room, done]);
 
-  // chong gian lan: chuyen tab / mat focus - chi dem, khong tu dong thu
+  // chong gian lan: chi dem khi that su roi man hinh + chong dem lap (<2s bo qua)
   useEffect(() => {
     if (!room || done) return;
     const onHide = async () => {
       if (document.hidden && !doneRef.current) {
+        const now = Date.now();
+        if (now - lastViolRef.current < 2000) return;
+        lastViolRef.current = now;
         try {
-          const r = await reportViolation(credRef.current.code, credRef.current.participant, credRef.current.ticket);
+          const c = credRef.current;
+          const r = await reportViolation(c.code, c.participant, c.ticket, c.idNumber);
           setViolations(r.violations ?? 0);
           if (r.submitted) {
             setWarn(r.expired
@@ -79,7 +85,9 @@ export default function ExamRoomPage() {
         } catch { /* ignore */ }
       }
     };
-    const onBlur = () => { if (!doneRef.current) onHide(); };
+    // blur (mat focus cua so) KHONG tu dem: chi dem khi tab that su bi an,
+    // tranh dem oan khi bam thanh dia chi / popup / devtools
+    const onBlur = () => { if (document.hidden && !doneRef.current) void onHide(); };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('blur', onBlur);
     return () => {
@@ -121,7 +129,7 @@ export default function ExamRoomPage() {
       }
       setDone(r.submitted ? { score: 0, total: (r.questions || []).length } : null);
       setDetail(r.detail || []);
-      credRef.current = { code: code.trim().toUpperCase(), participant: name.trim(), ticket: r.ticket || '' };
+      credRef.current = { code: code.trim().toUpperCase(), participant: name.trim(), ticket: r.ticket || '', idNumber: idNumber.trim() };
       localStorage.setItem('eq_exam_session', JSON.stringify(credRef.current));
       if (r.submitted) {
         const lb = await getLeaderboard(r.room.id).catch(() => null);
@@ -141,7 +149,8 @@ export default function ExamRoomPage() {
     setAnswers((a) => ({ ...a, [qid]: val }));
     // luu lien tuc: bam cau nao luu ngay cau do
     try {
-      await saveRoomAnswer(credRef.current.code, credRef.current.participant, qid, val, credRef.current.ticket);
+      const c = credRef.current;
+      await saveRoomAnswer(c.code, c.participant, qid, val, c.ticket, c.idNumber);
     } catch (err) {
       // het gio giua chung -> server da tu thu, keo ket qua ve
       if (err instanceof Error && err.message.includes('Hết giờ')) {
@@ -158,7 +167,8 @@ export default function ExamRoomPage() {
     doneRef.current = true;
     try {
       // submit luy thua (idempotent): bai da nop van tra lai detail day du
-      const r = await submitRoom(credRef.current.code, credRef.current.participant, credRef.current.ticket);
+      const c = credRef.current;
+      const r = await submitRoom(c.code, c.participant, c.ticket, c.idNumber);
       setDone({ score: r.score ?? 0, total: r.total ?? questions.length });
       setShowAnswers(r.show_answers !== false);
       setDetail(r.detail || []);

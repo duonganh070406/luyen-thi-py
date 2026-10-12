@@ -120,3 +120,36 @@ def admin_create_user(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"ok": True, **user}
+
+
+class AdminResetPasswordBody(BaseModel):
+    new_password: str = ""
+
+
+@router.put("/api/auth/users/{username}/password")
+def admin_reset_password(
+    username: str,
+    body: AdminResetPasswordBody,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+):
+    """Quan tri dat lai mat khau cho user (user phai dang nhap lai)."""
+    try:
+        auth_store.admin_reset_password(username, body.new_password or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@router.delete("/api/auth/users/{username}")
+def admin_delete_user(
+    username: str,
+    user: auth_store.AuthUser = Depends(auth_store.require_admin),
+):
+    """Xoa tai khoan (khong duoc tu xoa chinh minh)."""
+    if (username or "").strip() == user.username:
+        raise HTTPException(status_code=400, detail="Không thể tự xóa tài khoản của mình.")
+    try:
+        auth_store.delete_user(username)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"ok": True}

@@ -107,6 +107,27 @@ def update_question(
     return {"ok": True}
 
 
+@router.delete("/api/subjects/{subject}/bank")
+def delete_bank(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+):
+    """Xoa CA BO DE (cau hoi + dong subject). Chan neu dang co ky thi dung bo nay."""
+    name = _sanitize_subject_name(subject)
+    with store.session() as conn:
+        used = conn.execute(
+            "SELECT COUNT(*) AS n FROM rooms WHERE subject=?", (name,)
+        ).fetchone()
+        if used and int(used["n"]) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Không thể xóa: đang có {int(used['n'])} kỳ kiểm tra dùng bộ đề này. Hãy kết thúc/xóa kỳ thi trước.",
+            )
+        if not store.subject_delete(conn, name):
+            raise HTTPException(status_code=404, detail="Không tìm thấy bộ đề.")
+    return {"ok": True}
+
+
 @router.delete("/api/subjects/{subject}/bank/{qid}")
 def delete_question(
     subject: str,
@@ -130,11 +151,15 @@ def _sanitize_subject_name(subject: str) -> str:
     return name
 
 
+# Gioi han file import de tranh treo server khi doc file sieu lon vao RAM
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
 @router.post("/api/import/preview")
 async def import_preview(
     file: UploadFile,
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
-) -> dict[str, Any]:
+):
     """Doc file Excel/CSV va tra ve cau hoi PHAN TICH DUOC ma KHONG luu.
     Frontend hien preview, user sua ten bo de roi bam Luu (goi PUT bank)."""
     name = (file.filename or "").strip()
@@ -142,6 +167,8 @@ async def import_preview(
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="File rỗng.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File quá lớn (tối đa 10MB).")
     try:
         if lower.endswith(".csv"):
             rows = bank_store.read_csv_bytes(data)
@@ -248,6 +275,8 @@ async def import_file(
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="File rỗng.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File quá lớn (tối đa 10MB).")
     try:
         if lower.endswith(".csv"):
             rows = bank_store.read_csv_bytes(data)

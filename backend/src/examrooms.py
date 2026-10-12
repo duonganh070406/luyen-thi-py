@@ -1,7 +1,8 @@
 """Phong thi online, luu tru SQLite (src/db.py, file DATA_ROOT/app.db).
 
 - rooms          : 1 dong / phong
-- room_sessions  : khoa chinh (room_id, participant) — MOI THI SINH 1 DONG rieng
+- room_sessions  : khoa chinh (room_id, participant, id_number) — MOI THI SINH 1 DONG rieng
+  (trung ho ten nhung khac CCCD thi tach session, khong de bai thi)
   (du lieu JSON cu da duoc migrate vao DB luc khoi dong)
 
 Room: id, code, name, subject, topics, difficulty, count, time_limit,
@@ -54,10 +55,24 @@ def update_room_fields(room_id: str, fields: dict[str, Any]) -> bool:
         return store.room_update_fields(conn, room_id, fields)
 
 
-def load_session(room_id: str, participant: str) -> dict[str, Any] | None:
-    """Doc 1 session cua thi sinh."""
+def load_session(room_id: str, participant: str, id_number: str = "") -> dict[str, Any] | None:
+    """Doc 1 session cua thi sinh theo (phong, ho ten, CCCD)."""
     with store.session() as conn:
-        return store.session_get(conn, room_id, participant)
+        return store.session_get(conn, room_id, participant, id_number)
+
+
+def find_session(room_id: str, participant: str, id_number: str = "") -> dict[str, Any] | None:
+    """Tim session: khop (ten + CCCD); client cu chua gui CCCD ('') ma chi co
+    dung 1 session cung ten thi dung tam de khong gay gian doan."""
+    with store.session() as conn:
+        s = store.session_get(conn, room_id, participant, id_number)
+        if s is not None:
+            return s
+        if not (id_number or "").strip():
+            rows = store.session_get_by_name(conn, room_id, participant)
+            if len(rows) == 1:
+                return rows[0]
+        return None
 
 
 def save_session(sess: dict[str, Any]) -> None:
@@ -70,8 +85,8 @@ _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
 
 
-def _lock_for(room_id: str, participant: str) -> threading.Lock:
-    key = f"{room_id}\u0000{(participant or '').strip()}"
+def _lock_for(room_id: str, participant: str, id_number: str = "") -> threading.Lock:
+    key = f"{room_id}\u0000{(participant or '').strip()}\u0000{(id_number or '').strip()}"
     with _LOCKS_GUARD:
         lock = _LOCKS.get(key)
         if lock is None:
@@ -80,15 +95,23 @@ def _lock_for(room_id: str, participant: str) -> threading.Lock:
         return lock
 
 
-def update_session(room_id: str, participant: str, fn: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+def update_session(
+    room_id: str, participant: str, fn: Callable[[dict[str, Any]], None], id_number: str = ""
+) -> dict[str, Any]:
     """Doc -> sua -> ghi 1 session DUOI KHOA (chong mat bai khi luu dong thoi).
 
     Tra ve session sau khi sua. Raise ValueError neu chua join.
     Moi exception khac do fn gay ra duoc giu nguyen de route xu ly.
     """
     name = (participant or "").strip()
-    with _lock_for(room_id, name):
-        s = load_session(room_id, name)
+    idn = (id_number or "").strip()
+    with _lock_for(room_id, name, idn):
+        with store.session() as conn:
+            s = store.session_get(conn, room_id, name, idn)
+            if s is None and not idn:
+                rows = store.session_get_by_name(conn, room_id, name)
+                if len(rows) == 1:
+                    s = rows[0]
         if s is None:
             raise ValueError("Chưa join phòng.")
         fn(s)
@@ -267,8 +290,8 @@ def join_room(code: str, participant: str, unit: str = "", id_number: str = "") 
         raise ValueError("Vui lòng nhập tên để vào thi.")
     unit_name = (unit or "").strip()
     idn = (id_number or "").strip()
-    with _lock_for(room["id"], name):
-        s = load_session(room["id"], name)
+    with _lock_for(room["id"], name, idn):
+        s = load_session(room["id"], name, idn)
         if s is not None:
             # Vao lai: session da nop van xem duoc ket qua ke ca phong da dong.
             # Xoay ticket moi de chi 1 tab trinh duyet duoc phep lam bai

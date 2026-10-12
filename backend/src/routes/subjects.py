@@ -26,14 +26,10 @@ from src.utils import (
     get_exam_files,
     get_note_files,
     has_exam_files,
-    history_path,
     parse_exam_file,
-    read_json_list,
     read_note_content,
     resolve_subject_dir,
-    write_json_atomic,
     read_subject_config,
-    config_path,
 )
 from src.config_manager import read_ai_config, write_ai_config
 from src.grading_strategies import (

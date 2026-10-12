@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import threading
 import time
 from typing import Any
 
@@ -135,6 +136,7 @@ class AnswerBody(BaseModel):
     ticket: str = ""
     question_id: str = ""
     answer: Any = None
+    id_number: str = ""
 
 
 def _check_ticket_or_403(sess: dict[str, Any], ticket: str) -> None:
@@ -164,7 +166,7 @@ def save_answer(body: AnswerBody):
         s["updated_at"] = int(time.time())
 
     try:
-        s = store.update_session(room["id"], body.participant, _apply)
+        s = store.update_session(room["id"], body.participant, _apply, body.id_number)
     except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
     return {"ok": True, "answered": len(s.get("answers") or {})}
@@ -174,6 +176,14 @@ class ViolationBody(BaseModel):
     code: str = ""
     participant: str = ""
     ticket: str = ""
+    id_number: str = ""
+
+
+# Chong dem lap vi pham: 2 request cach nhau < 2s (blur + visibilitychange
+# cung luc, hoac client cu) chi tinh 1 lan.
+_VIOL_DEBOUNCE_SECS = 2.0
+_LAST_VIOL: dict[str, float] = {}
+_LAST_VIOL_GUARD = threading.Lock()
 
 
 @router.post("/api/rooms/violation")
@@ -196,6 +206,17 @@ def report_violation(body: ViolationBody):
             store.finalize_session(s)
             just_expired = True
             return
+        key = f"{room['id']}\u0000{s.get('participant', '')}\u0000{s.get('id_number', '')}"
+        now = time.time()
+        with _LAST_VIOL_GUARD:
+            if len(_LAST_VIOL) > 10000:
+                cutoff = now - 3600
+                for k in [k for k, t in _LAST_VIOL.items() if t < cutoff]:
+                    del _LAST_VIOL[k]
+            last = _LAST_VIOL.get(key, 0.0)
+            if now - last < _VIOL_DEBOUNCE_SECS:
+                return
+            _LAST_VIOL[key] = now
         s["violations"] = int(s.get("violations", 0)) + 1
         s["updated_at"] = int(time.time())
         # Tu thu bai khi vuot so lan cho phep (neu ky thi bat che do nay)
@@ -204,7 +225,7 @@ def report_violation(body: ViolationBody):
             auto_took = True
 
     try:
-        s = store.update_session(room["id"], body.participant, _apply)
+        s = store.update_session(room["id"], body.participant, _apply, body.id_number)
     except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
     if just_expired:
@@ -216,6 +237,7 @@ class SubmitBody(BaseModel):
     code: str = ""
     participant: str = ""
     ticket: str = ""
+    id_number: str = ""
 
 
 @router.post("/api/rooms/submit")
@@ -231,7 +253,7 @@ def submit(body: SubmitBody):
             store.finalize_session(s)
 
     try:
-        s = store.update_session(room["id"], body.participant, _apply)
+        s = store.update_session(room["id"], body.participant, _apply, body.id_number)
     except ValueError:
         raise HTTPException(status_code=404, detail="Chưa join phòng.")
     show = room.get("show_answers", True)
@@ -280,12 +302,26 @@ def get_leaderboard(room_id: str):
     room = store.get_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
+    ranking = []
+    for r in store.leaderboard(room_id):
+        # BXH public: AN SO CCCD (chi giam sat/export admin moi thay)
+        ranking.append({k: v for k, v in r.items() if k != "id_number"})
+    return {"room": {"id": room["id"], "code": room["code"], "name": room["name"]}, "ranking": ranking}
+
+
+@router.get("/api/rooms/{room_id}/leaderboard/full")
+def get_leaderboard_full(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
+    """BXH day du cho quan tri (gom CCCD de phan biet trung ten)."""
+    room = store.get_room(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
     return {"room": {"id": room["id"], "code": room["code"], "name": room["name"]}, "ranking": store.leaderboard(room_id)}
 
 
 class ScoreEditBody(BaseModel):
     participant: str = ""
     score: int = 0
+    id_number: str = ""
 
 
 @router.put("/api/rooms/{room_id}/leaderboard")
@@ -301,7 +337,7 @@ def edit_leaderboard(room_id: str, body: ScoreEditBody, _: auth_store.AuthUser =
         s["manual_edit"] = True
 
     try:
-        store.update_session(room_id, (body.participant or "").strip(), _apply)
+        store.update_session(room_id, (body.participant or "").strip(), _apply, body.id_number)
     except ValueError:
         raise HTTPException(status_code=404, detail="Không tìm thấy thí sinh.")
     return {"ok": True}
@@ -320,7 +356,8 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     w.writerow(["Hang", "Thi sinh", "Don vi", "So CCCD", "Diem", "Tong", "Da lam", "Vi pham tab", "So lan vao", "Da nop"])
     for i, r in enumerate(ranking, start=1):
         w.writerow([i, r["participant"], r.get("unit", ""), r.get("id_number", ""), r["score"], r["total"], r["answered"], r["violations"], r.get("joins", 1), "Co" if r["submitted"] else "Chua"])
-    return PlainTextResponse(buf.getvalue(), media_type="text/csv; charset=utf-8")
+    # BOM giup Excel hien dung tieng Viet
+    return PlainTextResponse("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8")
 
 
 # ---------- Units (Phòng ban/Khoa) CRUD ----------

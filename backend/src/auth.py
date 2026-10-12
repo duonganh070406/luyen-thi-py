@@ -163,6 +163,20 @@ def set_password(username: str, new_password: str) -> None:
         store.tokens_delete_user(conn, username)
 
 
+def admin_reset_password(username: str, new_password: str) -> None:
+    """Quan tri dat lai mat khau cho user (thu hoi het phien cu)."""
+    if not (new_password or "") or len(new_password) < 3:
+        raise ValueError("Mật khẩu mới phải từ 3 ký tự trở lên.")
+    set_password((username or "").strip(), new_password)
+
+
+def delete_user(username: str) -> None:
+    """Xoa tai khoan (dung cho quan tri)."""
+    with store.session() as conn:
+        if not store.user_delete(conn, (username or "").strip()):
+            raise ValueError("Không tìm thấy tài khoản.")
+
+
 def lookup_token(token: str) -> dict[str, Any] | None:
     with store.session() as conn:
         info = store.token_get(conn, token)

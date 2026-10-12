@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS rooms(
 CREATE TABLE IF NOT EXISTS room_sessions(
   room_id TEXT NOT NULL,
   participant TEXT NOT NULL,
+  id_number TEXT NOT NULL DEFAULT '',
   unit TEXT NOT NULL DEFAULT '',
   ticket TEXT NOT NULL DEFAULT '',
   questions TEXT NOT NULL DEFAULT '[]',
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS room_sessions(
   score INTEGER NOT NULL DEFAULT 0,
   total INTEGER NOT NULL DEFAULT 0,
   manual_edit INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(room_id, participant)
+  PRIMARY KEY(room_id, participant, id_number)
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_room ON room_sessions(room_id);
 CREATE TABLE IF NOT EXISTS subjects(
@@ -266,6 +267,27 @@ def set_password_hash(conn: sqlite3.Connection, username: str, password_hash: st
             cur = conn.execute(
                 "UPDATE users SET password_hash=? WHERE username=?", (password_hash, username)
             )
+            conn.execute("COMMIT")
+            return cur.rowcount > 0
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+
+
+def user_delete(conn: sqlite3.Connection, username: str) -> bool:
+    """Xoa tai khoan + thu hoi het phien dang nhap. Tra ve True neu co xoa."""
+    name = (username or "").strip()
+    if not name:
+        return False
+    with _WRITE:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM tokens WHERE username=?", (name,))
+            conn.execute("DELETE FROM login_attempts WHERE username=?", (name,))
+            cur = conn.execute("DELETE FROM users WHERE username=?", (name,))
             conn.execute("COMMIT")
             return cur.rowcount > 0
         except Exception:
@@ -491,12 +513,26 @@ def _sess_from_row(r: sqlite3.Row) -> dict[str, Any]:
     return d
 
 
-def session_get(conn: sqlite3.Connection, room_id: str, participant: str) -> dict[str, Any] | None:
+def session_get(
+    conn: sqlite3.Connection, room_id: str, participant: str, id_number: str = ""
+) -> dict[str, Any] | None:
+    """Doc session theo dinh danh (room, ho ten, CCCD)."""
     r = conn.execute(
-        f"SELECT {_SESS_COLS} FROM room_sessions WHERE room_id=? AND participant=?",
-        (room_id, (participant or "").strip()),
+        f"SELECT {_SESS_COLS} FROM room_sessions WHERE room_id=? AND participant=? AND id_number=?",
+        (room_id, (participant or "").strip(), (id_number or "").strip()),
     ).fetchone()
     return _sess_from_row(r) if r else None
+
+
+def session_get_by_name(conn: sqlite3.Connection, room_id: str, participant: str) -> list[dict[str, Any]]:
+    """Tat ca session cung ho ten trong 1 phong (phuc vu fallback client cu)."""
+    return [
+        _sess_from_row(r)
+        for r in conn.execute(
+            f"SELECT {_SESS_COLS} FROM room_sessions WHERE room_id=? AND participant=?",
+            (room_id, (participant or "").strip()),
+        ).fetchall()
+    ]
 
 
 def session_put(conn: sqlite3.Connection, sess: dict[str, Any]) -> None:
@@ -505,8 +541,7 @@ def session_put(conn: sqlite3.Connection, sess: dict[str, Any]) -> None:
         "INSERT INTO room_sessions(room_id, participant, unit, id_number, ticket, questions, answers,"
         " violations, joins, joined_at, deadline, updated_at, submitted, submitted_at,"
         " score, total, manual_edit) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        " ON CONFLICT(room_id, participant) DO UPDATE SET unit=excluded.unit,"
-        " id_number=excluded.id_number,"
+        " ON CONFLICT(room_id, participant, id_number) DO UPDATE SET unit=excluded.unit,"
         " ticket=excluded.ticket, questions=excluded.questions, answers=excluded.answers,"
         " violations=excluded.violations, joins=excluded.joins, joined_at=excluded.joined_at,"
         " deadline=excluded.deadline, updated_at=excluded.updated_at,"
@@ -1097,6 +1132,124 @@ def _ensure_seed_admin(conn: sqlite3.Connection) -> None:
         print("[db] da tao tai khoan admin mac dinh (admin123)")
 
 
+def _migrate_sessions_pk(conn: sqlite3.Connection) -> bool:
+    """Nang PK room_sessions (room_id, participant) -> (room_id, participant, id_number).
+
+    DB cu: 2 thi sinh trung ho ten dung chung 1 dong. Rebuild bang trong
+    transaction, giu nguyen du lieu (id_number thieu -> ''). Tra ve True neu da rebuild.
+    """
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='room_sessions'"
+    ).fetchone()
+    sql = str((row["sql"] if row else "") or "")
+    if "PRIMARY KEY(room_id, participant, id_number)" in sql:
+        return False
+    have = {c["name"] for c in conn.execute("PRAGMA table_info(room_sessions)").fetchall()}
+    if not have:
+        return False
+    cols = ["room_id", "participant", "id_number", "unit", "ticket", "questions", "answers",
+            "violations", "joins", "joined_at", "deadline", "updated_at", "submitted",
+            "submitted_at", "score", "total", "manual_edit"]
+    collist = ", ".join(cols)
+    sellist = ", ".join("'' AS id_number" if (c == "id_number" and c not in have) else c for c in cols)
+    with _WRITE:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(
+                "CREATE TABLE room_sessions_new("
+                " room_id TEXT NOT NULL, participant TEXT NOT NULL,"
+                " id_number TEXT NOT NULL DEFAULT '', unit TEXT NOT NULL DEFAULT '',"
+                " ticket TEXT NOT NULL DEFAULT '', questions TEXT NOT NULL DEFAULT '[]',"
+                " answers TEXT NOT NULL DEFAULT '{}', violations INTEGER NOT NULL DEFAULT 0,"
+                " joins INTEGER NOT NULL DEFAULT 1, joined_at INTEGER NOT NULL DEFAULT 0,"
+                " deadline INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0,"
+                " submitted INTEGER NOT NULL DEFAULT 0, submitted_at INTEGER,"
+                " score INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0,"
+                " manual_edit INTEGER NOT NULL DEFAULT 0,"
+                " PRIMARY KEY(room_id, participant, id_number))"
+            )
+            conn.execute(
+                f"INSERT INTO room_sessions_new({collist}) SELECT {collist} FROM room_sessions"
+            )
+            conn.execute("DROP TABLE room_sessions")
+            conn.execute("ALTER TABLE room_sessions_new RENAME TO room_sessions")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_room ON room_sessions(room_id)")
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+    return True
+
+
+def subject_delete(conn: sqlite3.Connection, name: str) -> bool:
+    """Xoa ca bo de: cau hoi + dong subject. Tra ve True neu co xoa."""
+    name = (name or "").strip()
+    if not name:
+        return False
+    with _WRITE:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM bank_questions WHERE subject=?", (name,))
+            cur = conn.execute("DELETE FROM subjects WHERE name=?", (name,))
+            conn.execute("COMMIT")
+            return cur.rowcount > 0
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+
+
+def _backup_db() -> None:
+    """Sao luu app.db (tối đa 1 bản/ngày, giữ 7 bản mới nhất).
+
+    Dung SQLite backup API nen an toan ngay khi DB dang mo (WAL).
+    """
+    try:
+        bdir = DATA_ROOT / "backups"
+        bdir.mkdir(parents=True, exist_ok=True)
+        existing = sorted(bdir.glob("app-*.db"))
+        now = int(time.time())
+        if existing:
+            newest = existing[-1]
+            try:
+                if now - int(newest.stat().st_mtime) < 24 * 3600:
+                    return
+            except Exception:
+                pass
+        stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
+        dest = bdir / f"app-{stamp}.db"
+        src = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        try:
+            dst = sqlite3.connect(str(dest))
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+        finally:
+            src.close()
+        for old in sorted(bdir.glob("app-*.db"))[:-7]:
+            try:
+                old.unlink()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[db] canh bao backup: {e}")
+
+
+def _purge_expired_tokens(conn: sqlite3.Connection) -> None:
+    """Xoa token het han (giai phong DB)."""
+    try:
+        conn.execute("DELETE FROM tokens WHERE expires_at IS NOT NULL AND expires_at < ?", (int(time.time()),))
+        conn.commit()
+    except Exception:
+        pass
+
+
 _INITIALIZED = False
 _INIT_LOCK = threading.Lock()
 
@@ -1121,10 +1274,17 @@ def init_db() -> dict[str, int] | None:
                     conn.execute(ddl)
                 except Exception:
                     pass
+            try:
+                if _migrate_sessions_pk(conn):
+                    print("[db] da nang PK room_sessions -> (room_id, participant, id_number)")
+            except Exception as e:
+                print(f"[db] canh bao migrate PK sessions: {e}")
+            _purge_expired_tokens(conn)
             counts: dict[str, int] | None = None
             if fresh:
                 counts = _migrate_from_json(conn)
                 print(f"[db] migrate JSON -> SQLite xong: {counts}")
+            _backup_db()
             _ensure_seed_admin(conn)
             _INITIALIZED = True
             return counts

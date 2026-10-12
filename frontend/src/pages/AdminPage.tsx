@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2 } from 'lucide-react';
+import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2, KeyRound } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
 import {
   currentUser, listSubjects, getBank,
   updateBankQuestion, previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
-  getMonitor, getLeaderboard, editScore, listReports, updateReport,
+  getMonitor, getFullLeaderboard, editScore, listReports, updateReport,
   suggestDifficulty, getBankTopics, exportRoomCsv, getUnits, addUnit, deleteUnit,
-  getContact, updateContact, listUsers, adminCreateUser,
+  getContact, updateContact, listUsers, adminCreateUser, adminResetPassword, adminDeleteUser,
+  deleteBank,
 } from '../services/api.ts';
 
 const TABS = [
@@ -332,7 +333,7 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
           <button type="button" onClick={() => { setBankId(null); setDirty(false); setMsg(''); }} className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50">
             ← Danh sách bộ đề
           </button>
-          <h2 className="font-bold text-sm text-slate-800 flex-1">Bộ "{bankId}" · {items.length} câu{dirty ? ' · (chưa lưu)' : ''}</h2>
+          <h2 className="font-bold text-sm text-primary flex-1">Bộ "{bankId}" · {items.length} câu{dirty ? ' · (chưa lưu)' : ''}</h2>
           <button type="button" onClick={() => void loadBank(bankId)} disabled={!dirty || busy} className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-50 disabled:opacity-40">
             Hủy thay đổi
           </button>
@@ -423,17 +424,36 @@ function BankTab({ subjects, onChanged }: { subjects: { id: string; name: string
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="font-bold text-sm text-slate-800 mb-2">Các bộ câu hỏi ({subjects.length})</h2>
+        <h2 className="font-bold text-sm text-primary mb-2">Các bộ câu hỏi ({subjects.length})</h2>
         <div className="flex flex-col gap-2 max-h-96 overflow-auto">
           {subjects.map((s) => (
-            <button
-              key={s.id} type="button" onClick={() => openBank(s.id)}
-              className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-2 hover:border-primary hover:bg-primary/5 cursor-pointer text-left transition-colors"
-            >
-              <span className="font-bold text-slate-800 flex-1 text-sm">{s.name}</span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{counts[s.id] ?? '…'} câu</span>
-              <span className="text-primary font-bold">Mở →</span>
-            </button>
+            <div key={s.id} className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-2 hover:border-primary transition-colors">
+              <button
+                type="button" onClick={() => openBank(s.id)}
+                className="flex-1 flex items-center gap-2 cursor-pointer text-left hover:bg-primary/5 rounded-lg -m-1 p-1"
+              >
+                <span className="font-bold text-slate-800 flex-1 text-sm">{s.name}</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">{counts[s.id] ?? '…'} câu</span>
+                <span className="text-primary font-bold">Mở →</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`Xóa CẢ BỘ ĐỀ "${s.name}" (${counts[s.id] ?? '?'} câu)? Không thể hoàn tác.`)) return;
+                  try {
+                    await deleteBank(s.id);
+                    setMsg(`Đã xóa bộ đề "${s.name}".`);
+                    onChanged();
+                  } catch (e) {
+                    setMsg(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer shrink-0"
+                title="Xóa cả bộ đề"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
           ))}
           {subjects.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có bộ câu hỏi nào. Hãy import file ở trên.</p>}
         </div>
@@ -515,7 +535,7 @@ function UnitsTab() {
   return (
     <div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
-        <h2 className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-2"><Building2 size={15} /> Thêm đơn vị mới</h2>
+        <h2 className="flex items-center gap-2 font-bold text-sm text-primary mb-2"><Building2 size={15} /> Thêm đơn vị mới</h2>
         <div className="flex gap-2">
           <input
             value={newUnit}
@@ -532,7 +552,7 @@ function UnitsTab() {
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="font-bold text-sm text-slate-800 mb-2">Danh sách đơn vị ({units.length})</h2>
+        <h2 className="font-bold text-sm text-primary mb-2">Danh sách đơn vị ({units.length})</h2>
         <div className="flex flex-col gap-2 max-h-96 overflow-auto">
           {units.map((u) => (
             <div key={u.name} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center justify-between">
@@ -582,7 +602,7 @@ function ContactTab() {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 max-w-xl">
-      <h2 className="font-bold text-sm text-slate-800 mb-1">Thông tin liên hệ</h2>
+      <h2 className="font-bold text-sm text-primary mb-1">Thông tin liên hệ</h2>
       <p className="text-[11px] text-slate-500 mb-3">Hiển thị ở trang Liên hệ cho mọi người xem.</p>
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
       <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
@@ -611,6 +631,31 @@ function UsersTab() {
   const [role, setRole] = useState('user');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetFor, setResetFor] = useState<string | null>(null);
+  const [resetPass, setResetPass] = useState('');
+
+  const doReset = async (username: string) => {
+    if (!resetPass || resetPass.length < 3) { setMsg('Mật khẩu mới phải từ 3 ký tự trở lên.'); return; }
+    try {
+      await adminResetPassword(username, resetPass);
+      setResetFor(null);
+      setResetPass('');
+      setMsg(`Đã đặt lại mật khẩu cho "${username}". Người dùng phải đăng nhập lại.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const doDelete = async (username: string) => {
+    if (!confirm(`Xóa tài khoản "${username}"? Người dùng này sẽ bị đăng xuất ngay.`)) return;
+    try {
+      await adminDeleteUser(username);
+      setMsg(`Đã xóa tài khoản "${username}".`);
+      reload();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const reload = () => {
     listUsers().then((r) => setUsers(r.users || [])).catch((e) => setMsg(String(e)));
@@ -637,7 +682,7 @@ function UsersTab() {
   return (
     <div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4 max-w-xl">
-        <h2 className="font-bold text-sm text-slate-800 mb-2">Tạo tài khoản mới</h2>
+        <h2 className="font-bold text-sm text-primary mb-2">Tạo tài khoản mới</h2>
         <div className="grid sm:grid-cols-3 gap-2 mb-3">
           <input
             value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên đăng nhập"
@@ -660,14 +705,45 @@ function UsersTab() {
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="font-bold text-sm text-slate-800 mb-2">Danh sách tài khoản ({users.length})</h2>
+        <h2 className="font-bold text-sm text-primary mb-2">Danh sách tài khoản ({users.length})</h2>
         <div className="flex flex-col gap-2 max-h-96 overflow-auto">
           {users.map((u) => (
-            <div key={u.username} className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center gap-2">
-              <b className="flex-1 text-slate-800">{u.username}</b>
-              {u.role === 'admin'
-                ? <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">admin</span>
-                : <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">user</span>}
+            <div key={u.username}>
+              <div className="rounded-xl border border-slate-100 px-3 py-2.5 text-xs flex items-center gap-2">
+                <b className="flex-1 text-slate-800">{u.username}</b>
+                {u.role === 'admin'
+                  ? <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">admin</span>
+                  : <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">user</span>}
+                <button
+                  type="button" onClick={() => { setResetFor(resetFor === u.username ? null : u.username); setResetPass(''); }}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer"
+                  title="Đặt lại mật khẩu"
+                >
+                  <KeyRound size={11} /> Đặt lại MK
+                </button>
+                <button
+                  type="button" onClick={() => doDelete(u.username)}
+                  className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                  title="Xóa tài khoản"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              {resetFor === u.username && (
+                <div className="flex gap-2 mt-1.5 mb-1 ml-4">
+                  <input
+                    type="password" value={resetPass} onChange={(e) => setResetPass(e.target.value)}
+                    placeholder="Mật khẩu mới (≥3 ký tự)"
+                    className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button" onClick={() => doReset(u.username)}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-white text-[11px] font-bold cursor-pointer hover:bg-primary-dark"
+                  >
+                    Lưu
+                  </button>
+                </div>
+              )}
             </div>
           ))}
           {users.length === 0 && <p className="text-xs text-slate-400 text-center py-6">Chưa có tài khoản nào.</p>}
@@ -770,7 +846,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
         const m = await getMonitor(monitorId);
         if (!stop) {
           setMonitor(m);
-          const lb = await getLeaderboard(monitorId).catch(() => null);
+          const lb = await getFullLeaderboard(monitorId).catch(() => null);
           if (!stop && lb) setRanking(lb.ranking || []);
         }
       } catch { /* ignore */ }
@@ -986,12 +1062,12 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
       {/* Giam sat truc tiep + BXH */}
       {monitor && (
         <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-          <h2 className="font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-3">
+          <h2 className="font-extrabold text-[13px] text-primary uppercase tracking-wide mb-3">
             Giám sát trực tiếp: {monitor.room?.name} ({monitor.room?.code}) — {monitor.total} thí sinh
           </h2>
           <div className="flex flex-col gap-1.5 max-h-56 overflow-auto mb-4">
             {monitor.participants?.map((p: any) => (
-              <div key={p.participant} className="text-xs rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <div key={`${p.participant}__${p.id_number || ''}`} className="text-xs rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <b className="flex-1 truncate min-w-[120px]">{p.participant}{p.unit ? ` · ${p.unit}` : ''}{p.id_number ? ` · ${p.id_number}` : ''}</b>
                 <span className="text-slate-500">{p.answered}/{p.total} câu</span>
                 <span className="text-slate-500">điểm hiện tại <b className="text-slate-800">{p.current_score}</b></span>
@@ -1004,19 +1080,19 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
           <h3 className="font-bold text-xs text-slate-700 mb-1.5">Bảng xếp hạng (sửa được)</h3>
           <div className="flex flex-col gap-1.5 max-h-56 overflow-auto">
             {ranking.map((r: any, i: number) => (
-              <div key={r.participant} className="text-xs rounded-lg border border-slate-100 px-3 py-2 flex items-center gap-2">
+              <div key={`${r.participant}__${r.id_number || ''}`} className="text-xs rounded-lg border border-slate-100 px-3 py-2 flex items-center gap-2">
                 <span className="font-bold text-slate-400 w-6">{i + 1}</span>
-                <b className="flex-1 truncate">{r.participant}</b>
+                <b className="flex-1 truncate">{r.participant}{r.id_number ? ` · ${r.id_number}` : ''}</b>
                 <span>{r.score}/{r.total}</span>
                 <input
                   type="number" min={0} max={r.total}
-                  value={editScores[r.participant] ?? r.score}
-                  onChange={(e) => setEditScores((s) => ({ ...s, [r.participant]: Number(e.target.value) }))}
+                  value={editScores[`${r.participant}__${r.id_number || ''}`] ?? r.score}
+                  onChange={(e) => setEditScores((s) => ({ ...s, [`${r.participant}__${r.id_number || ''}`]: Number(e.target.value) }))}
                   className="w-16 rounded-md border border-slate-200 px-1.5 py-1 text-xs outline-none"
                 />
                 <button
                   type="button"
-                  onClick={async () => { await editScore(monitor.room.id, r.participant, editScores[r.participant] ?? r.score); const lb = await getLeaderboard(monitor.room.id).catch(() => null); if (lb) setRanking(lb.ranking || []); }}
+                  onClick={async () => { await editScore(monitor.room.id, r.participant, editScores[`${r.participant}__${r.id_number || ''}`] ?? r.score, r.id_number || ''); const lb = await getFullLeaderboard(monitor.room.id).catch(() => null); if (lb) setRanking(lb.ranking || []); }}
                   className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer"
                 >
                   <Pencil size={11} /> Sửa
@@ -1038,7 +1114,7 @@ function ReportsTab({ subject }: { subject: string }) {
   useEffect(() => { reload(); }, [subject]);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <h2 className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-2"><Flag size={14} /> Báo lỗi từ người dùng ({items.length})</h2>
+      <h2 className="flex items-center gap-2 font-bold text-sm text-primary mb-2"><Flag size={14} /> Báo lỗi từ người dùng ({items.length})</h2>
       <div className="flex flex-col gap-2">
         {items.map((r) => (
           <div key={r.id} className="text-xs rounded-xl border border-slate-100 px-3 py-2.5 flex items-start gap-2">
@@ -1079,7 +1155,7 @@ function MlTab({ subject }: { subject: string }) {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <h2 className="flex items-center gap-2 font-bold text-sm text-slate-800 mb-1"><Sparkles size={14} /> ML tự động đánh giá độ khó (50 câu đầu)</h2>
+      <h2 className="flex items-center gap-2 font-bold text-sm text-primary mb-1"><Sparkles size={14} /> ML tự động đánh giá độ khó (50 câu đầu)</h2>
       <p className="text-[11px] text-slate-500 mb-3">
         Phương pháp hiện tại: <b>tỉ lệ làm sai lịch sử + độ dài câu hỏi</b> (sai ≥60% → Khó, 30–60% → Trung bình, {'<'}30% → Dễ).
         Kiến trúc mở — có thể thay bằng model ML thật mà không đổi API. Chủ đề hiện có: {topics.join(', ') || 'chưa có'}.

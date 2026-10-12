@@ -16,8 +16,8 @@ export default function ContactPage() {
           THÔNG TIN LIÊN HỆ
         </h1>
         <p className="text-xs text-slate-600 mb-6 leading-relaxed">
-          Phòng Đào tạo — Hệ thống luyện thi A05<br />
-          <span className="text-slate-500">(bản chạy local)</span>
+          Cục An ninh mạng — Bộ Công an<br />
+          <span className="text-slate-500">Đoàn TNCS Hồ Chí Minh — Cục An ninh mạng</span>
         </p>
 
         <div className="flex flex-col items-center gap-3 text-xs text-slate-800">

@@ -136,7 +136,7 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={savingPass || !oldPass || !newPass}
-            className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold cursor-pointer hover:bg-slate-700 disabled:opacity-50"
+            className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-bold cursor-pointer hover:bg-primary-dark disabled:opacity-50"
           >
             {savingPass ? 'Đang đổi...' : 'Đổi mật khẩu (sẽ đăng nhập lại)'}
           </button>

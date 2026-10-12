@@ -255,6 +255,29 @@ export async function adminCreateUser(username: string, password: string, role: 
   });
 }
 
+export async function adminResetPassword(username: string, newPassword: string): Promise<{ ok: boolean }> {
+  return fetchJson(`/api/auth/users/${encodeURIComponent(username)}/password`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ new_password: newPassword }),
+  });
+}
+
+export async function adminDeleteUser(username: string): Promise<{ ok: boolean }> {
+  return fetchJson(`/api/auth/users/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+}
+
+export async function deleteBank(subject: string): Promise<{ ok: boolean }> {
+  const s = encodeURIComponent(subject);
+  return fetchJson(`/api/subjects/${s}/bank`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+}
+
 export function currentUser(): { username: string; role: string } | null {
   try {
     const raw = localStorage.getItem('eq_user');
@@ -455,11 +478,15 @@ export async function getLeaderboard(roomId: string): Promise<{ room: any; ranki
   return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/leaderboard`);
 }
 
-export async function editScore(roomId: string, participant: string, score: number): Promise<any> {
+export async function getFullLeaderboard(roomId: string): Promise<{ room: any; ranking: any[] }> {
+  return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/leaderboard/full`, { headers: authHeaders() });
+}
+
+export async function editScore(roomId: string, participant: string, score: number, id_number = ''): Promise<any> {
   return fetchJson(`/api/rooms/${encodeURIComponent(roomId)}/leaderboard`, {
     method: 'PUT',
     headers: authHeaders(),
-    body: JSON.stringify({ participant, score }),
+    body: JSON.stringify({ participant, score, id_number }),
   });
 }
 
@@ -478,23 +505,23 @@ export function exportRoomCsv(roomId: string): void {
       a.click();
       URL.revokeObjectURL(a.href);
     })
-    .catch((e) => alert(`Khong tai duoc bao cao: ${e instanceof Error ? e.message : e}`));
+    .catch((e) => alert(`Không tải được báo cáo: ${e instanceof Error ? e.message : e}`));
 }
 
 export async function joinRoom(code: string, participant: string, unit = '', id_number = ''): Promise<any> {
   return fetchJson('/api/rooms/join', { method: 'POST', body: JSON.stringify({ code, participant, unit, id_number }) });
 }
 
-export async function saveRoomAnswer(code: string, participant: string, question_id: string, answer: any, ticket = ''): Promise<any> {
-  return fetchJson('/api/rooms/answer', { method: 'POST', body: JSON.stringify({ code, participant, question_id, answer, ticket }) });
+export async function saveRoomAnswer(code: string, participant: string, question_id: string, answer: any, ticket = '', id_number = ''): Promise<any> {
+  return fetchJson('/api/rooms/answer', { method: 'POST', body: JSON.stringify({ code, participant, question_id, answer, ticket, id_number }) });
 }
 
-export async function reportViolation(code: string, participant: string, ticket = ''): Promise<any> {
-  return fetchJson('/api/rooms/violation', { method: 'POST', body: JSON.stringify({ code, participant, ticket }) });
+export async function reportViolation(code: string, participant: string, ticket = '', id_number = ''): Promise<any> {
+  return fetchJson('/api/rooms/violation', { method: 'POST', body: JSON.stringify({ code, participant, ticket, id_number }) });
 }
 
-export async function submitRoom(code: string, participant: string, ticket = ''): Promise<any> {
-  return fetchJson('/api/rooms/submit', { method: 'POST', body: JSON.stringify({ code, participant, ticket }) });
+export async function submitRoom(code: string, participant: string, ticket = '', id_number = ''): Promise<any> {
+  return fetchJson('/api/rooms/submit', { method: 'POST', body: JSON.stringify({ code, participant, ticket, id_number }) });
 }
 
 // ---------- Units (Phòng ban/Khoa) ----------
