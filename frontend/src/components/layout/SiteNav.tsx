@@ -82,9 +82,16 @@ export default function SiteNav() {
               <ShieldCheck size={14} /> Quản trị
             </button>
           )}
-          {user && (
+          {user ? (
             <div className="ml-2 flex items-center gap-2 text-xs text-white">
-              <span className="font-bold">{user.username}</span>
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="font-bold hover:underline cursor-pointer"
+                title="Xem hồ sơ"
+              >
+                {user.username}
+              </button>
               <button
                 type="button"
                 onClick={doLogout}
@@ -94,6 +101,13 @@ export default function SiteNav() {
                 <LogOut size={14} />
               </button>
             </div>
+          ) : (
+            <NavLink
+              to="/dang-nhap"
+              className="ml-2 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white/15 text-white hover:bg-white/25 transition-colors"
+            >
+              Đăng nhập
+            </NavLink>
           )}
         </nav>
 
@@ -127,9 +141,14 @@ export default function SiteNav() {
             </NavLink>
           )}
           {user ? (
-            <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white">
-              Đăng xuất ({user.username})
-            </button>
+            <>
+              <NavLink to="/profile" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-white">
+                Hồ sơ ({user.username} · {user.role})
+              </NavLink>
+              <button type="button" onClick={() => { setOpen(false); doLogout(); }} className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white/80">
+                Đăng xuất
+              </button>
+            </>
           ) : (
             <NavLink to="/dang-nhap" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold bg-[#D4AF37] text-[#8B0000]">
               Đăng nhập

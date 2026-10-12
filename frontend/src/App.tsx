@@ -15,6 +15,7 @@ import HomePage from './pages/HomePage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
 import ContactPage from './pages/ContactPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
+import ProfilePage from './pages/ProfilePage.tsx';
 import PracticePage from './pages/PracticePage.tsx';
 import ExamRoomPage from './pages/ExamRoomPage.tsx';
 import AdminPage from './pages/AdminPage.tsx';
@@ -375,6 +376,7 @@ export default function App() {
           <Route path="/phong-thi" element={<ExamRoomPage />} />
           <Route path="/lien-he" element={<ContactPage />} />
           <Route path="/dang-nhap" element={<LoginPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin/:tab?" element={<AdminPage />} />
           <Route path="/subject/:subjectId" element={<AppContent />} />
           <Route path="/subject/:subjectId/note/*" element={<AppContent />} />
