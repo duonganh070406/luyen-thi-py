@@ -38,6 +38,8 @@ export default function PracticePage() {
   const [reportMsg, setReportMsg] = useState('');
   const [notice, setNotice] = useState('');
   const [history, setHistory] = useState<Attempt[]>([]);
+  const [histQuery, setHistQuery] = useState('');
+  const [histSort, setHistSort] = useState<'newest' | 'oldest' | 'best' | 'worst'>('newest');
 
   useEffect(() => {
     listSubjects().then((s) => {
@@ -158,6 +160,33 @@ export default function PracticePage() {
   };
 
   const score = useMemo(() => (result ? result.filter((r) => r.ok).length : 0), [result]);
+
+  const shownHistory = useMemo(() => {
+    const q = histQuery.trim().toLowerCase();
+    const list = q
+      ? history.filter((h) => {
+          const hay = `${h.examName || ''} ${h.score}/${h.total} ${
+            h.timestamp ? new Date(h.timestamp).toLocaleString('vi-VN') : ''
+          }`.toLowerCase();
+          return hay.includes(q);
+        })
+      : [...history];
+    switch (histSort) {
+      case 'oldest':
+        list.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        break;
+      case 'best':
+        list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || (b.total ?? 0) - (a.total ?? 0));
+        break;
+      case 'worst':
+        list.sort((a, b) => (a.score ?? 0) - (b.score ?? 0) || (a.total ?? 0) - (b.total ?? 0));
+        break;
+      default:
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        break;
+    }
+    return list;
+  }, [history, histQuery, histSort]);
 
   // ---- Man hinh lam bai ----
   if (questions.length > 0 && !result) {
@@ -377,11 +406,34 @@ export default function PracticePage() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs mt-6">
         <h2 className="text-base font-bold text-slate-900 mb-1">Lịch sử làm bài ({history.length})</h2>
         <p className="text-xs text-slate-500 mb-4">Bấm vào một lượt để xem lại chi tiết bài làm.</p>
+        {history.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <input
+              value={histQuery}
+              onChange={(e) => setHistQuery(e.target.value)}
+              placeholder="Tìm theo tên đề, điểm (vd: 8/10), ngày..."
+              className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+            <select
+              value={histSort}
+              onChange={(e) => setHistSort(e.target.value as typeof histSort)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 outline-none focus:border-primary bg-white cursor-pointer"
+              title="Sắp xếp lịch sử"
+            >
+              <option value="newest">Mới nhất</option>
+              <option value="oldest">Lâu nhất</option>
+              <option value="best">Đúng nhiều nhất</option>
+              <option value="worst">Đúng ít nhất</option>
+            </select>
+          </div>
+        )}
         {history.length === 0 ? (
           <p className="text-xs text-slate-400 text-center py-4">Chưa có lượt làm bài nào ở môn này.</p>
+        ) : shownHistory.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-4">Không tìm thấy lượt nào khớp "{histQuery}".</p>
         ) : (
           <div className="flex flex-col gap-2 max-h-80 overflow-auto">
-            {history.map((h) => (
+            {shownHistory.map((h) => (
               <button
                 key={h.id}
                 type="button"
