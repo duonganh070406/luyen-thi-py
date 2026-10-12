@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Play, Flag, RotateCcw, CheckCircle2, XCircle } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer.tsx';
 import CompetencyChart, { DIFF_LABEL } from '../components/CompetencyChart.tsx';
-import { questionFromApi } from '../mapBackend.ts';
-import type { Question } from '../types.ts';
+import { attemptFromHistory, questionFromApi } from '../mapBackend.ts';
+import type { Attempt, Question } from '../types.ts';
 import {
-  appendHistory, getBankTopics, getCompetency, getPracticeQuiz,
+  appendHistory, getBankTopics, getCompetency, getHistory, getPracticeQuiz,
   getSubjectStats, listSubjects, reportQuestion,
 } from '../services/api.ts';
 
@@ -37,6 +37,7 @@ export default function PracticePage() {
   const [reportFor, setReportFor] = useState<string | null>(null);
   const [reportMsg, setReportMsg] = useState('');
   const [notice, setNotice] = useState('');
+  const [history, setHistory] = useState<Attempt[]>([]);
 
   useEffect(() => {
     listSubjects().then((s) => {
@@ -55,7 +56,17 @@ export default function PracticePage() {
     }).catch(() => setTopics([]));
     getCompetency(subject).then(setCompetency).catch(() => setCompetency(null));
     getSubjectStats(subject).then((st) => setRecentErrors(st.recentErrors || [])).catch(() => setRecentErrors([]));
+    getHistory(subject)
+      .then((h) => setHistory((Array.isArray(h) ? h : []).map((r) => attemptFromHistory(subject, r as Record<string, unknown>))))
+      .catch(() => setHistory([]));
   }, [subject]);
+
+  const reloadHistory = () => {
+    if (!subject) return;
+    getHistory(subject)
+      .then((h) => setHistory((Array.isArray(h) ? h : []).map((r) => attemptFromHistory(subject, r as Record<string, unknown>))))
+      .catch(() => {});
+  };
 
   const toggleTopic = (t: string) => {
     setPicked((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
@@ -110,7 +121,27 @@ export default function PracticePage() {
       });
       getCompetency(subject).then(setCompetency).catch(() => {});
       getSubjectStats(subject).then((st) => setRecentErrors(st.recentErrors || [])).catch(() => {});
+      reloadHistory();
     } catch { /* luyen van hien ket qua du luu lich su loi */ }
+    window.scrollTo({ top: 0 });
+  };
+
+  const viewHistory = (att: Attempt) => {
+    const snaps = Array.isArray(att.snapshot) ? att.snapshot : [];
+    if (snaps.length === 0) {
+      setNotice('Bài làm này không còn chi tiết câu hỏi để xem lại.');
+      return;
+    }
+    const qs = snaps.map((s) => questionFromApi(subject, s as Record<string, unknown>));
+    const rows: ResultRow[] = snaps.map((s: any, i: number) => {
+      const u = typeof s.userAnswer === 'number' ? s.userAnswer : -1;
+      const ok = typeof s.isCorrect === 'boolean' ? s.isCorrect : ((qs[i].correctAnswers || [0])[0] === u);
+      return { q: qs[i], user: u, ok };
+    });
+    setQuestions(qs);
+    setAnswers({});
+    setResult(rows);
+    setNotice('');
     window.scrollTo({ top: 0 });
   };
 
@@ -340,6 +371,36 @@ export default function PracticePage() {
           <Play size={13} fill="currentColor" />
           <span>{loading ? 'Đang chuẩn bị đề...' : 'Bắt đầu luyện thi'}</span>
         </button>
+      </div>
+
+      {/* Lịch sử làm bài */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs mt-6">
+        <h2 className="text-base font-bold text-slate-900 mb-1">Lịch sử làm bài ({history.length})</h2>
+        <p className="text-xs text-slate-500 mb-4">Bấm vào một lượt để xem lại chi tiết bài làm.</p>
+        {history.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-4">Chưa có lượt làm bài nào ở môn này.</p>
+        ) : (
+          <div className="flex flex-col gap-2 max-h-80 overflow-auto">
+            {history.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => viewHistory(h)}
+                className="rounded-xl border border-slate-100 px-4 py-3 text-xs flex items-center gap-3 hover:border-[#8B0000] hover:bg-[#8B0000]/5 cursor-pointer text-left transition-colors"
+              >
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold text-slate-800 truncate">{h.examName || 'Đề ngẫu nhiên'}</span>
+                  <span className="block text-slate-400 mt-0.5">
+                    {h.timestamp ? new Date(h.timestamp).toLocaleString('vi-VN') : ''}
+                  </span>
+                </span>
+                <span className={`font-bold px-2.5 py-1 rounded-lg ${h.score >= h.total / 2 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                  {h.score}/{h.total}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
