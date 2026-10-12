@@ -10,6 +10,7 @@ const LINKS = [
   { to: '/luyen-thi', label: 'Ôn luyện' },
   { to: '/phong-thi', label: 'Tham gia kiểm tra' },
   { to: '/gioi-thieu', label: 'Hướng dẫn' },
+  { to: '/lien-he', label: 'Liên hệ' },
 ];
 
 /** Header 2 tang kieu cong an: thanh thuong hieu trang + thanh dieu huong do. */
@@ -56,7 +57,7 @@ export default function SiteNav() {
             <span className="leading-tight">
               <span className="block text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Bộ Công an</span>
               <span className="block text-sm md:text-base font-extrabold tracking-wide text-primary uppercase">Cục An ninh mạng</span>
-              <span className="block text-[9px] md:text-[10px] font-medium tracking-wider text-slate-500 uppercase">Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản</span>
+              <span className="block text-[9px] md:text-[10px] font-medium tracking-wider text-slate-500 uppercase">Hệ thống kiểm tra đánh giá</span>
             </span>
           </button>
           <div className="hidden sm:flex items-center gap-2.5 text-right shrink-0">

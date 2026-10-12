@@ -7,7 +7,7 @@ from src.config import DATA_ROOT, get_cors_origins
 from src.routes import auth, bank, browse, health, rooms, subjects
 
 app = FastAPI(
-    title="He thong kiem tra nhan thuc nghiep vu co ban",
+    title="He thong kiem tra danh gia",
     version="1.0.0",
     docs_url="/swagger",  # Swagger UI at /swagger
     redoc_url="/redoc",

@@ -41,7 +41,7 @@ export default function HomePage() {
           Bộ Công an – Cục An ninh mạng
         </p>
         <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-white uppercase tracking-wide leading-snug max-w-4xl mx-auto">
-          Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản
+          Hệ thống kiểm tra đánh giá
         </h1>
         <p className="mt-2 text-sm sm:text-base font-bold uppercase tracking-[0.2em] text-white">
           Lực lượng an ninh

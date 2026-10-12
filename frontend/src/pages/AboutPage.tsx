@@ -18,7 +18,7 @@ export default function AboutPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-xl font-extrabold text-primary uppercase tracking-wide mb-1">Hướng dẫn sử dụng</h1>
-      <p className="text-xs text-slate-500 mb-5">Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản – Lực lượng an ninh.</p>
+      <p className="text-xs text-slate-500 mb-5">Hệ thống kiểm tra đánh giá – Lực lượng an ninh.</p>
 
       <div className="rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-sm mb-4">
         <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-slate-800 uppercase tracking-wide mb-3">

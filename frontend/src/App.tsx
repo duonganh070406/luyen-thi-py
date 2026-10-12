@@ -237,7 +237,7 @@ function AppContent() {
               <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-sm">
                 <BookOpen size={32} />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Hệ thống kiểm tra nhận thức nghiệp vụ cơ bản</h2>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Hệ thống kiểm tra đánh giá</h2>
               <p className="text-slate-500 text-sm max-w-sm mb-6">
                 Chọn một môn học từ danh sách bên trái để bắt đầu ôn tập các câu hỏi trắc nghiệm, tự luận và thẻ ghi nhớ.
               </p>
