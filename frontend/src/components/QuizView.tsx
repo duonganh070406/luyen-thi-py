@@ -436,7 +436,7 @@ export default function QuizView({
       <div className="inset-0 absolute z-[100] bg-white flex flex-col items-center justify-center p-8">
         <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
         <h2 className="text-2xl font-bold mb-2 text-slate-800 italic font-serif">Đang chấm điểm...</h2>
-        <p className="text-sm text-slate-400">Hệ thống AI đang phân tích nội dung bài làm của bạn.</p>
+        <p className="text-sm text-slate-400">Hệ thống đang phân tích nội dung bài làm của bạn.</p>
       </div>
     );
   }

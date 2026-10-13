@@ -5,8 +5,8 @@
 - File .md de thi / ghi chu / anh giu nguyen tren dia (SQLite khong chua blob).
 - File JSON cu GIU LAI lam backup, khong xoa; migrate 1 lan khi DB moi tao.
 
-13 bang: users, login_attempts, rooms, room_sessions, subjects, subject_exams,
-subject_notes, bank_questions, history_attempts, reports, units, settings, ai_profiles.
+12 bang: users, login_attempts, rooms, room_sessions, subjects, subject_exams,
+subject_notes, bank_questions, history_attempts, reports, units, settings.
 
 Xac thuc dung JWT stateless (src/auth.py): khong con bang tokens.
 DB cu con bang nay se duoc DROP khi khoi dong.
@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from src.config import BACKEND_DIR, DATA_ROOT
+from src.config import DATA_ROOT
 
 DB_PATH = DATA_ROOT / "app.db"
 
@@ -125,13 +125,8 @@ CREATE TABLE IF NOT EXISTS settings(
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS ai_profiles(
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL DEFAULT '',
-  api_key TEXT NOT NULL DEFAULT '',
-  base_url TEXT NOT NULL DEFAULT '',
-  model TEXT NOT NULL DEFAULT ''
-);
+-- Bang ai_profiles cu (neu con tu ban truoc) duoc xoa han.
+DROP TABLE IF EXISTS ai_profiles;
 CREATE TABLE IF NOT EXISTS subject_exams(
   subject TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL DEFAULT '',
@@ -858,7 +853,7 @@ def unit_delete(conn: sqlite3.Connection, name: str) -> bool:
             raise
 
 
-# ---------- settings + ai_profiles ----------
+# ---------- settings ----------
 
 def setting_get(conn: sqlite3.Connection, key: str, default: str = "") -> str:
     r = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -872,38 +867,6 @@ def setting_set(conn: sqlite3.Connection, key: str, value: str) -> None:
         " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, value),
     )
-
-
-def ai_profiles_all(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    return [
-        {
-            "id": r["id"], "name": r["name"] or "", "aiApiKey": r["api_key"] or "",
-            "aiBaseUrl": r["base_url"] or "", "aiModel": r["model"] or "",
-        }
-        for r in conn.execute("SELECT id, name, api_key, base_url, model FROM ai_profiles ORDER BY id")
-    ]
-
-
-def ai_profiles_replace(conn: sqlite3.Connection, profiles: list[dict[str, Any]]) -> None:
-    rows = [
-        (p.get("id"), p.get("name", ""), p.get("aiApiKey", ""), p.get("aiBaseUrl", ""), p.get("aiModel", ""))
-        for p in profiles if isinstance(p, dict) and str(p.get("id", "")).strip()
-    ]
-    with _WRITE:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute("DELETE FROM ai_profiles")
-            if rows:
-                conn.executemany(
-                    "INSERT INTO ai_profiles(id, name, api_key, base_url, model) VALUES(?,?,?,?,?)", rows
-                )
-            conn.execute("COMMIT")
-        except Exception:
-            try:
-                conn.execute("ROLLBACK")
-            except Exception:
-                pass
-            raise
 
 
 # ---------- migrate tu JSON cu ----------
@@ -921,7 +884,7 @@ def _read_json_file(path: Path, default: Any) -> Any:
 
 
 def _migrate_from_json(conn: sqlite3.Connection) -> dict[str, int]:
-    """Doc toan bo JSON cu trong DATA_ROOT (+ ai_config) nap vao DB. Tra ve so luong."""
+    """Doc toan bo JSON cu trong DATA_ROOT nap vao DB. Tra ve so luong."""
     import hashlib as _hashlib
     import secrets as _secrets
 
@@ -1028,34 +991,6 @@ def _migrate_from_json(conn: sqlite3.Connection) -> dict[str, int]:
         counts["contact"] = 1
     else:
         counts["contact"] = 0
-
-    # 8. ai_config.json (nam ngoai DATA_ROOT, trong backend/config)
-    ai = _read_json_file(BACKEND_DIR / "config" / "ai_config.json", None)
-    if isinstance(ai, dict):
-        if "profiles" not in ai and ("aiApiKey" in ai or "aiBaseUrl" in ai or "aiModel" in ai):
-            ai = {
-                "enableAIGrading": bool(ai.get("enableAIGrading", True)),
-                "activeProfileId": "default",
-                "profiles": [{
-                    "id": "default", "name": "Google Gemini (Migrated)",
-                    "aiApiKey": str(ai.get("aiApiKey", "")).strip(),
-                    "aiBaseUrl": str(ai.get("aiBaseUrl", "")).strip(),
-                    "aiModel": str(ai.get("aiModel", "")).strip(),
-                }],
-            }
-        setting_set(conn, "ai.enable_grading", "1" if ai.get("enableAIGrading", True) else "0")
-        if ai.get("activeProfileId") is not None:
-            setting_set(conn, "ai.active_profile", str(ai["activeProfileId"]))
-        profs = [p for p in (ai.get("profiles") or []) if isinstance(p, dict) and str(p.get("id", "")).strip()]
-        if profs:
-            ai_profiles_replace(conn, [
-                {"id": str(p["id"]), "name": str(p.get("name", "")), "aiApiKey": str(p.get("aiApiKey", "")).strip(),
-                 "aiBaseUrl": str(p.get("aiBaseUrl", "")).strip(), "aiModel": str(p.get("aiModel", "")).strip()}
-                for p in profs
-            ])
-        counts["ai_profiles"] = len(profs)
-    else:
-        counts["ai_profiles"] = 0
 
     # 9. subjects: config + bank + history + reports theo tung thu muc mon
     n_sub = n_q = n_h = n_r = 0

@@ -1,4 +1,4 @@
-"""API ngan hang de + import Excel/CSV + luyen thi + ML + bao loi."""
+"""API ngan hang de + import Excel/CSV + luyen thi + bao loi."""
 from __future__ import annotations
 
 import random
@@ -293,19 +293,6 @@ def competency(
             bump(by_topic, topic, bool(ok))
             bump(by_diff, diff, bool(ok))
     return {"byTopic": by_topic, "byDifficulty": by_diff}
-
-
-# ---------- ML goi y do kho ----------
-
-@router.get("/api/subjects/{subject}/ml-difficulty")
-def ml_difficulty(
-    subject: str,
-    question_id: str = "",
-    question: str = "",
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> dict[str, Any]:
-    require_subject(subject)
-    return bank_store.suggest_difficulty(subject, question_id or None, question or None)
 
 
 # ---------- Bao loi cau hoi ----------

@@ -78,9 +78,6 @@ function AppContent() {
 
   const {
     copyConfig,
-    enableAIGrading,
-    activeProfileId,
-    aiProfiles,
     showSettingsModal,
     setShowSettingsModal,
     toastMessage,
@@ -157,7 +154,6 @@ function AppContent() {
     setState,
     setIsLoadingData,
     setIsLoadingExamData,
-    enableAIGrading,
     selectedExam,
     defaultQuizConfig,
   });
@@ -345,9 +341,6 @@ function AppContent() {
             setActiveSettingsTab={setActiveSettingsTab}
             tempCopyConfig={tempCopyConfig}
             setTempCopyConfig={setTempCopyConfig}
-            activeProfileId={activeProfileId}
-            aiProfiles={aiProfiles}
-            enableAIGrading={enableAIGrading}
             allSubjectsForConfig={allSubjectsForConfig}
             isLoadingAllSubjects={isLoadingAllSubjects}
             selectedSubjectIdForConfig={selectedSubjectIdForConfig}
@@ -356,7 +349,7 @@ function AppContent() {
             setTempSubjectConfigs={setTempSubjectConfigs}
             defaultQuizConfig={defaultQuizConfig}
             onClose={() => setShowSettingsModal(false)}
-            onSave={(aiConfig, copyConfig, quizConfig) => handleSaveSettings(aiConfig, copyConfig, quizConfig)}
+            onSave={(copyConfig, quizConfig) => handleSaveSettings(copyConfig, quizConfig)}
           />
         )}
 

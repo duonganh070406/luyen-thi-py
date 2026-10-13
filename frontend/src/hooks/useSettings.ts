@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppState, CopyConfig, QuizParams } from '../types.ts';
-import { listSubjects, updateSubjectConfig, getAIConfig, updateAIConfig, AIProfile, AIConfig } from '../services/api.ts';
+import { listSubjects, updateSubjectConfig } from '../services/api.ts';
 
 const DEFAULT_COPY_CONFIG: CopyConfig = {
   format: 'json',
@@ -39,9 +39,6 @@ export function useSettings({ selectedSubjectId, setState }: UseSettingsParams) 
     return DEFAULT_COPY_CONFIG;
   });
 
-  const [enableAIGrading, setEnableAIGrading] = useState<boolean>(true);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
-  const [aiProfiles, setAiProfiles] = useState<AIProfile[]>([]);
   const [defaultQuizConfig, setDefaultQuizConfig] = useState<QuizParams>(() => {
     const saved = localStorage.getItem("defaultQuizConfig");
     if (saved) {
@@ -67,28 +64,13 @@ export function useSettings({ selectedSubjectId, setState }: UseSettingsParams) 
     localStorage.setItem("copyConfig", JSON.stringify(copyConfig));
   }, [copyConfig]);
 
-  // Load initial AI config from backend
-  useEffect(() => {
-    async function loadInitialAIConfig() {
-      try {
-        const config = await getAIConfig();
-        setEnableAIGrading(config.enableAIGrading);
-        setActiveProfileId(config.activeProfileId);
-        setAiProfiles(config.profiles || []);
-      } catch (e) {
-        console.error("Failed to load initial AI config", e);
-      }
-    }
-    loadInitialAIConfig();
-  }, []);
-
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [allSubjectsForConfig, setAllSubjectsForConfig] = useState<any[]>([]);
   const [isLoadingAllSubjects, setIsLoadingAllSubjects] = useState<boolean>(false);
   const [selectedSubjectIdForConfig, setSelectedSubjectIdForConfig] = useState<string | null>(null);
   const [tempSubjectConfigs, setTempSubjectConfigs] = useState<Record<string, any>>({});
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'ai' | 'subjects'>('general');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'subjects'>('general');
   const [tempCopyConfig, setTempCopyConfig] = useState<CopyConfig>(copyConfig);
 
   const showToast = (msg: string) => {
@@ -129,27 +111,15 @@ export function useSettings({ selectedSubjectId, setState }: UseSettingsParams) 
   }, [showSettingsModal, copyConfig]);
 
   const handleSaveSettings = async (
-    aiConfig: AIConfig,
     newCopyConfig: CopyConfig,
     newDefaultQuizConfig: QuizParams
   ) => {
     try {
-      // 1. Save AI config to backend
-      const updateAIRes = await updateAIConfig(aiConfig);
-
-      if (!updateAIRes.ok) {
-        alert("Lỗi khi lưu cấu hình AI trên máy chủ!");
-        return;
-      }
-
       setCopyConfig(newCopyConfig);
       setDefaultQuizConfig(newDefaultQuizConfig);
       localStorage.setItem("defaultQuizConfig", JSON.stringify(newDefaultQuizConfig));
-      setEnableAIGrading(aiConfig.enableAIGrading);
-      setActiveProfileId(aiConfig.activeProfileId);
-      setAiProfiles(aiConfig.profiles);
 
-      // 2. Save Subject configs
+      // Save Subject configs
       let saveError = null;
       for (const s of allSubjectsForConfig) {
         const currentConfig = s.config;
@@ -209,24 +179,10 @@ export function useSettings({ selectedSubjectId, setState }: UseSettingsParams) 
   const openSettings = () => {
     setShowSettingsModal(true);
     fetchAllSubjects();
-    async function refreshAIConfig() {
-      try {
-        const config = await getAIConfig();
-        setEnableAIGrading(config.enableAIGrading);
-        setActiveProfileId(config.activeProfileId);
-        setAiProfiles(config.profiles || []);
-      } catch (e) {
-        console.error("Failed to refresh AI config", e);
-      }
-    }
-    refreshAIConfig();
   };
 
   return {
     copyConfig,
-    enableAIGrading,
-    activeProfileId,
-    aiProfiles,
     showSettingsModal,
     setShowSettingsModal,
     toastMessage,

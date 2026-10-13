@@ -9,21 +9,6 @@ class HistoryAttemptCreate(BaseModel):
     examName: str
     questions: list[dict[str, Any]]
     answers: dict[str, Any]
-    enableAIGrading: bool = True
-
-
-class AIProfileModel(BaseModel):
-    id: str
-    name: str
-    aiApiKey: str = ""
-    aiBaseUrl: str = ""
-    aiModel: str = ""
-
-
-class AIConfigModel(BaseModel):
-    enableAIGrading: bool = True
-    activeProfileId: str | None = None
-    profiles: list[AIProfileModel] = []
 
 
 

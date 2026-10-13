@@ -36,7 +36,7 @@ export interface Attempt {
   score: number;
   total: number;
   answers: Record<string, any>; // questionId -> answer
-  feedbacks?: Record<string, string>; // AI feedback for essay questions
+  feedbacks?: Record<string, string>; // feedback for essay questions
   snapshot?: any[]; // The full question data at the time of the attempt
   examName?: string;
   correct?: number;

@@ -12,7 +12,6 @@ interface UseQuizSessionParams {
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   setIsLoadingData: React.Dispatch<React.SetStateAction<boolean>>;
   setIsLoadingExamData: React.Dispatch<React.SetStateAction<boolean>>;
-  enableAIGrading: boolean;
   selectedExam: string | null;
   defaultQuizConfig: QuizParams;
 }
@@ -25,7 +24,6 @@ export function useQuizSession({
   setState,
   setIsLoadingData,
   setIsLoadingExamData,
-  enableAIGrading,
   selectedExam,
   defaultQuizConfig,
 }: UseQuizSessionParams) {
@@ -323,7 +321,6 @@ export function useQuizSession({
       examName: activeExamName || 'Đề ngẫu nhiên',
       questions: activeQuizQuestions,
       answers: quizAnswers,
-      enableAIGrading
     };
 
     try {

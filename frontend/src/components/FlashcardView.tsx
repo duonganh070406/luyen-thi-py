@@ -5,7 +5,6 @@ import {
   HelpCircle,
   CheckCircle2,
   MessageSquare,
-  Sparkles,
   RefreshCw,
   X,
   ChevronLeft,
@@ -17,7 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question, AppState } from '../types.ts';
-import { appendHistory, requestAiFeedback } from '../services/api.ts';
+import { appendHistory } from '../services/api.ts';
 import { attemptFromHistory } from '../mapBackend.ts';
 import MarkdownRenderer from './MarkdownRenderer.tsx';
 
@@ -58,8 +57,6 @@ export default function FlashcardView({
   const [isFlipped, setIsFlipped] = useState(false);
   const [assessments, setAssessments] = useState<Record<string, 'correct' | 'incorrect'>>({});
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
-  const [aiFeedbacks, setAiFeedbacks] = useState<Record<string, string>>({});
-  const [aiFeedbackLoading, setAiFeedbackLoading] = useState<Record<string, boolean>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -142,30 +139,6 @@ export default function FlashcardView({
     handleNextCard();
   };
 
-  // Nhan xet AI chay phia server (API key khong roi may chu)
-  const handleGetAIFeedback = async (q: Question) => {
-    const draft = draftAnswers[q.id] || '';
-    if (!draft.trim()) {
-      alert("Vui lòng nhập câu trả lời nháp trước khi nhận xét AI!");
-      return;
-    }
-
-    setAiFeedbackLoading(prev => ({ ...prev, [q.id]: true }));
-    try {
-      const res = await requestAiFeedback(subjectId, {
-        question: q.text,
-        draft,
-        reference: q.referenceAnswer || '',
-      });
-      setAiFeedbacks(prev => ({ ...prev, [q.id]: res.feedback || "Không thể lấy nhận xét từ AI." }));
-    } catch (e) {
-      console.error(e);
-      setAiFeedbacks(prev => ({ ...prev, [q.id]: e instanceof Error ? e.message : String(e) }));
-    } finally {
-      setAiFeedbackLoading(prev => ({ ...prev, [q.id]: false }));
-    }
-  };
-
   // Silently save results to backend history
   const handleSaveAndClose = async () => {
     setIsSaving(true);
@@ -221,7 +194,6 @@ export default function FlashcardView({
       examName: `${examName.replace('.json', '')} (Flashcard)`,
       questions: payloadQuestions,
       answers: payloadAnswers,
-      enableAIGrading: false // Disable re-grading on backend save to save costs and run instantly
     };
 
     try {
@@ -254,7 +226,6 @@ export default function FlashcardView({
     setIsFlipped(newStates[0] ?? false);
     setAssessments({});
     setDraftAnswers({});
-    setAiFeedbacks({});
     setIsFinished(false);
   };
 
@@ -464,32 +435,6 @@ export default function FlashcardView({
                                 <MarkdownRenderer content={currentQuestion.referenceAnswer || currentQuestion.explanation || 'Không có đáp án mẫu.'} className="text-sm leading-relaxed" />
                               </div>
                             </div>
-
-                            {/* Direct AI Feedback Panel */}
-                            {aiFeedbacks[currentQuestion.id] ? (
-                              <div className="p-5 bg-emerald-50/55 border border-emerald-100 rounded-2xl">
-                                <span className="font-bold text-[9px] text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                  <Sparkles size={12} /> Nhận xét từ AI (Gemini):
-                                </span>
-                                <MarkdownRenderer content={aiFeedbacks[currentQuestion.id]} className="text-xs text-slate-600 leading-relaxed font-sans" />
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleGetAIFeedback(currentQuestion)}
-                                disabled={aiFeedbackLoading[currentQuestion.id]}
-                                className="w-full py-3 border border-dashed border-indigo-200 bg-indigo-50/20 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 hover:border-indigo-300 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                              >
-                                {aiFeedbackLoading[currentQuestion.id] ? (
-                                  <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang nhận xét câu trả lời nháp...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles size={12} /> Nhận xét câu trả lời nháp bằng AI (Gemini)
-                                  </>
-                                )}
-                              </button>
-                            )}
                           </div>
                         )}
 

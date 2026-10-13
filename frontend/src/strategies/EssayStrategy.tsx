@@ -1,5 +1,4 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
 import { QuestionStrategy } from './QuestionStrategy.ts';
 import MarkdownRenderer from '../components/MarkdownRenderer.tsx';
 
@@ -11,7 +10,7 @@ export const EssayStrategy: QuestionStrategy = {
   },
 
   isCorrect(): boolean {
-    return true; // Essay questions are graded by AI or informative
+    return true; // Essay questions are informative / manual review
   },
 
   renderInput({ question, value, onChange }) {
@@ -38,7 +37,7 @@ export const EssayStrategy: QuestionStrategy = {
         {feedback && (
           <div className="p-6 bg-green-50 rounded-2xl border border-green-200 text-sm">
             <p className="font-bold mb-2 text-green-600 uppercase tracking-widest text-[9px] flex items-center gap-2">
-              <Sparkles size={12} /> Nhận xét từ AI:
+              Nhận xét:
             </p>
             <MarkdownRenderer content={feedback} className="text-slate-700" />
           </div>

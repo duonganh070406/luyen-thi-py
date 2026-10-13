@@ -16,8 +16,6 @@ from src.models import (
     HistoryAttemptCreate,
     SubjectConfigModel,
     SubjectDetailResponse,
-    AIConfigModel,
-    AIProfileModel,
     QuizConfigModel,
 )
 from src.utils import (
@@ -26,7 +24,6 @@ from src.utils import (
     require_subject,
     subject_image_base,
 )
-from src.config_manager import read_ai_config, write_ai_config
 from src.grading_strategies import (
     GradingRegistry,
     SingleChoiceGrading,
@@ -37,33 +34,6 @@ from src.grading_strategies import (
 )
 
 router = APIRouter()
-
-# Tien to cua thong bao loi AI (khong phai nhan xet that) -> tu luan phai
-# cho cho cham tay, tuyet doi khong duoc +diem.
-_AI_ERROR_PREFIXES = ("Lỗi:", "Lỗi ", "Không thể")
-
-
-def _is_ai_error(feedback: Any) -> bool:
-    if not isinstance(feedback, str) or not feedback.strip():
-        return True
-    return feedback.strip().startswith(_AI_ERROR_PREFIXES)
-
-
-def _resolve_active_profile(
-    ai_config: dict[str, Any],
-) -> tuple[Any | None, str | None, str | None, str | None]:
-    """Tim profile AI dang dung -> (profile, api_key, base_url, model)."""
-    active = None
-    active_id = ai_config.get("activeProfileId")
-    for profile in ai_config.get("profiles", []) or []:
-        if isinstance(profile, dict) and profile.get("id") == active_id:
-            active = profile
-            break
-    if not active and ai_config.get("profiles"):
-        active = ai_config["profiles"][0]
-    if not isinstance(active, dict):
-        return None, None, None, None
-    return active, active.get("aiApiKey"), active.get("aiBaseUrl"), active.get("aiModel")
 
 # Đăng ký các bộ chấm điểm
 GradingRegistry.register(SingleChoiceGrading())
@@ -120,28 +90,6 @@ def update_subject_config(
     return {"ok": True}
 
 
-@router.get("/api/config/ai", response_model=AIConfigModel)
-def get_ai_config_endpoint(
-    user: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> AIConfigModel:
-    """Hoc vien dang nhap chi biet co bat AI khong; key chi admin thay."""
-    config_dict = read_ai_config()
-    if (user.role or "") != "admin":
-        config_dict = {**config_dict, "activeProfileId": None, "profiles": []}
-    return AIConfigModel(**config_dict)
-
-
-@router.put("/api/config/ai")
-def update_ai_config_endpoint(
-    config: AIConfigModel,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-) -> dict[str, Any]:
-    """Cập nhật cấu hình AI chấm điểm."""
-    config_dict = config.model_dump(mode="json")
-    write_ai_config(config_dict)
-    return {"ok": True}
-
-
 class ContactModel(BaseModel):
     email: str = ""
     phone: str = ""
@@ -165,95 +113,6 @@ def update_contact_endpoint(
 
     saved = write_contact({"email": body.email, "phone": body.phone})
     return {"ok": True, **saved}
-
-
-@router.post("/api/config/ai/test")
-async def test_ai_config_endpoint(
-    config: AIProfileModel,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-) -> dict[str, Any]:
-    """Kiểm tra kết nối và độ chính xác của AI bằng prompt mặc định."""
-    import os
-    import traceback
-    from openai import OpenAI
-
-    resolved_api_key = config.aiApiKey.strip()
-    resolved_base_url = config.aiBaseUrl.strip()
-    resolved_model = config.aiModel.strip()
-
-    # Fallback to env variables if not provided
-    if not resolved_api_key:
-        resolved_api_key = (
-            os.environ.get("AI_API_KEY")
-            or os.environ.get("GEMINI_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-        )
-    if not resolved_base_url:
-        resolved_base_url = (
-            os.environ.get("AI_BASE_URL")
-            or "https://generativelanguage.googleapis.com/v1beta/openai/"
-        )
-
-    # Ensure base_url has a trailing slash to prevent library URL merging issues (e.g. 404)
-    if resolved_base_url and not resolved_base_url.endswith("/"):
-        resolved_base_url += "/"
-
-    if not resolved_model:
-        resolved_model = os.environ.get("AI_MODEL") or "gemini-2.5-flash"
-
-    if not resolved_api_key:
-        return {
-            "success": False,
-            "response": "",
-            "error": "Lỗi: Không tìm thấy API Key.",
-        }
-
-    try:
-        client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
-        response = client.chat.completions.create(
-            model=resolved_model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Who developed you and what is your model version? "
-                        "Please answer concisely and make sure to explicitly include "
-                        "your exact model version/name identifier in the response."
-                    ),
-                }
-            ],
-            timeout=15.0,
-        )
-        if response.choices and response.choices[0].message.content:
-            return {
-                "success": True,
-                "response": response.choices[0].message.content.strip(),
-                "error": None,
-            }
-        return {
-            "success": False,
-            "response": "",
-            "error": "Không thể lấy phản hồi hợp lệ từ mô hình AI.",
-        }
-    except Exception as e:
-        err_msg = str(e)
-        if "404" in err_msg or "NotFoundError" in type(e).__name__:
-            err_msg = (
-                f"Lỗi 404 (Không tìm thấy): Đường dẫn API (Base URL) '{resolved_base_url}' "
-                f"có thể bị thiếu dấu gạch chéo '/' ở cuối, hoặc tên mô hình (Model Name) "
-                f"'{resolved_model}' không tồn tại trên hệ thống của nhà cung cấp.\n\n"
-                f"Chi tiết lỗi hệ thống:\n{err_msg}"
-            )
-        else:
-            err_msg = f"{err_msg}\n\nTraceback:\n{traceback.format_exc()}"
-
-        return {
-            "success": False,
-            "response": "",
-            "error": err_msg,
-        }
-
-
 
 
 @router.get("/api/subjects/{subject}/exams")
@@ -366,12 +225,6 @@ async def append_history(
     """Ghi thêm một lần làm bài mới vào lich su (SQLite) sau khi chấm điểm ở backend."""
     require_subject(subject)
 
-    ai_config = read_ai_config()
-    enable_ai = body.enableAIGrading and ai_config.get("enableAIGrading", True)
-
-    # Resolve active profile configuration
-    _, api_key, base_url, model = _resolve_active_profile(ai_config)
-
     correct = 0
     wrong = 0
     pending_essay = 0
@@ -416,24 +269,13 @@ async def append_history(
         else:
             strategy = GradingRegistry.get(q_type)
             if strategy:
-                res = await strategy.grade(
-                    q,
-                    user_ans,
-                    enable_ai=enable_ai,
-                    api_key=api_key,
-                    base_url=base_url,
-                    model=model,
-                )
+                res = await strategy.grade(q, user_ans)
                 is_correct = res.is_correct
                 feedback = res.feedback
-                
+
                 if q_type == "essay":
-                    # AI hong (het key, timeout, loi mang) -> feedback la chuoi
-                    # bao loi: CHO cham tay, tuyet doi khong +diem.
-                    if _is_ai_error(feedback):
-                        pending_essay += 1
-                    else:
-                        correct += 1
+                    # Tu luan cho giao vien cham tay, khong tu dong cong diem.
+                    pending_essay += 1
                 else:
                     if is_correct:
                         correct += 1
@@ -517,42 +359,6 @@ def delete_history_attempt(
     if not found:
         raise HTTPException(status_code=404, detail="Attempt not found")
     return {"ok": True, "length": total}
-
-
-class AiFeedbackBody(BaseModel):
-    question: str = ""
-    draft: str = ""
-    reference: str = ""
-
-
-@router.post("/api/subjects/{subject}/ai-feedback")
-async def ai_feedback(
-    subject: str,
-    body: AiFeedbackBody,
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> dict[str, Any]:
-    """Nhan xet bai tu luan phia server — API key AI khong bao gio roi may chu."""
-    require_subject(subject)
-    if not body.draft.strip():
-        raise HTTPException(status_code=400, detail="Cần bài làm nháp để nhận xét.")
-    ai_config = read_ai_config()
-    if not ai_config.get("enableAIGrading", True):
-        raise HTTPException(status_code=400, detail="Tính năng AI chấm điểm đang bị tắt trong cài đặt.")
-    _, api_key, base_url, model = _resolve_active_profile(ai_config)
-    strategy = GradingRegistry.get("essay")
-    if strategy is None:
-        raise HTTPException(status_code=500, detail="Chưa có bộ chấm tự luận.")
-    res = await strategy.grade(
-        {"text": body.question, "referenceAnswer": body.reference, "explanation": body.reference},
-        body.draft,
-        enable_ai=True,
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-    )
-    if _is_ai_error(res.feedback):
-        raise HTTPException(status_code=400, detail=res.feedback or "Không thể lấy nhận xét từ AI.")
-    return {"feedback": res.feedback}
 
 
 @router.post("/api/subjects/{subject}/comprehensive-quiz")

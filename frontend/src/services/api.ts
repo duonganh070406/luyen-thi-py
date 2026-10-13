@@ -109,33 +109,6 @@ export interface HistoryAppendPayload {
   examName: string;
   questions: any[];
   answers: Record<string, any>;
-  enableAIGrading: boolean;
-}
-
-export interface AIProfile {
-  id: string;
-  name: string;
-  aiApiKey: string;
-  aiBaseUrl: string;
-  aiModel: string;
-}
-
-export interface AIConfig {
-  enableAIGrading: boolean;
-  activeProfileId: string | null;
-  profiles: AIProfile[];
-}
-
-export async function getAIConfig(): Promise<AIConfig> {
-  return fetchJson<AIConfig>('/api/config/ai', { headers: authHeaders() });
-}
-
-export async function updateAIConfig(config: AIConfig): Promise<{ ok: boolean }> {
-  return fetchJson<{ ok: boolean }>('/api/config/ai', {
-    method: 'PUT',
-    headers: authHeaders(),
-    body: JSON.stringify(config),
-  });
 }
 
 export interface ContactInfo {
@@ -154,14 +127,6 @@ export async function updateContact(body: ContactInfo): Promise<ContactInfo & { 
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify(body),
-  });
-}
-
-export async function testAIConfig(profile: AIProfile): Promise<{ success: boolean; response: string; error?: string }> {
-  return fetchJson<{ success: boolean; response: string; error?: string }>('/api/config/ai/test', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(profile),
   });
 }
 
@@ -420,24 +385,6 @@ export async function getPracticeQuiz(subject: string, cfg: PracticeConfig): Pro
 export async function getCompetency(subject: string): Promise<{ byTopic: Record<string, { correct: number; wrong: number }>; byDifficulty: Record<string, { correct: number; wrong: number }> }> {
   const s = encodeURIComponent(subject);
   return fetchJson(`/api/subjects/${s}/competency`);
-}
-
-export async function suggestDifficulty(subject: string, questionId?: string, question?: string): Promise<any> {
-  const s = encodeURIComponent(subject);
-  const q = `?question_id=${encodeURIComponent(questionId ?? '')}&question=${encodeURIComponent(question ?? '')}`;
-  return fetchJson(`/api/subjects/${s}/ml-difficulty${q}`);
-}
-
-export async function requestAiFeedback(
-  subjectFolderName: string,
-  body: { question: string; draft: string; reference?: string }
-): Promise<{ feedback: string | null }> {
-  // Nhan xet AI chay phia server — API key khong bao gio xuong trinh duyet.
-  const s = encodeURIComponent(subjectFolderName);
-  return fetchJson<{ feedback: string | null }>(`/api/subjects/${s}/ai-feedback`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
 }
 
 // ---------- Bao loi ----------

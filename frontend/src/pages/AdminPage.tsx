@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Sparkles, Flag, Building2, KeyRound } from 'lucide-react';
+import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Flag, Building2, KeyRound } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
 import {
   currentUser, listSubjects, getBank,
-  updateBankQuestion, previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
+  previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
   getMonitor, getFullLeaderboard, editScore, listReports, updateReport,
-  suggestDifficulty, getBankTopics, exportRoomCsv, getUnits, addUnit, deleteUnit,
+  exportRoomCsv, getUnits, addUnit, deleteUnit,
   getContact, updateContact, listUsers, adminCreateUser, adminResetPassword, adminDeleteUser,
   deleteBank,
 } from '../services/api.ts';
@@ -17,7 +17,6 @@ const TABS = [
   { id: 'reports', label: 'Phản ánh câu hỏi' },
   { id: 'units', label: 'Đơn vị' },
   { id: 'users', label: 'Tài khoản' },
-  { id: 'ml', label: 'ML độ khó' },
   { id: 'contact', label: 'Liên hệ' },
 ];
 
@@ -66,7 +65,7 @@ export default function AdminPage() {
         <div className="flex-1" />
         {/* Luon render de hang tab giu chieu cao on dinh o moi tab (tranh nhay doc):
             chi an bang invisible thay vi go khoi DOM. */}
-        <label className={`flex items-center gap-2 text-xs font-bold text-slate-600 pb-2 ${(tab === 'reports' || tab === 'ml') ? 'visible' : 'invisible'}`}>
+        <label className={`flex items-center gap-2 text-xs font-bold text-slate-600 pb-2 ${tab === 'reports' ? 'visible' : 'invisible'}`}>
           Bộ câu hỏi:
           <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none bg-white">
             {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -78,7 +77,6 @@ export default function AdminPage() {
       {tab === 'rooms' && <RoomsTab subjects={subjects} />}
       {tab === 'units' && <UnitsTab />}
       {tab === 'reports' && subject && <ReportsTab key={`rp-${subject}`} subject={subject} />}
-      {tab === 'ml' && subject && <MlTab key={`ml-${subject}`} subject={subject} />}
       {tab === 'contact' && <ContactTab />}
       {tab === 'users' && <UsersTab />}
       </div>
@@ -1135,57 +1133,4 @@ function ReportsTab({ subject }: { subject: string }) {
   );
 }
 
-/* ---------------- ML do kho ---------------- */
 
-function MlTab({ subject }: { subject: string }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [topics, setTopics] = useState<string[]>([]);
-  const [res, setRes] = useState<Record<string, any>>({});
-  useEffect(() => {
-    getBank(subject).then((r) => setItems((r.items || []).slice(0, 50))).catch(() => {});
-    getBankTopics(subject).then((r) => setTopics(r.topics || [])).catch(() => {});
-  }, [subject]);
-
-  const check = async (q: any) => {
-    try {
-      const r = await suggestDifficulty(subject, q.id, q.question);
-      setRes((s) => ({ ...s, [q.id]: r }));
-    } catch { /* ignore */ }
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <h2 className="flex items-center gap-2 font-bold text-sm text-primary mb-1"><Sparkles size={14} /> ML tự động đánh giá độ khó (50 câu đầu)</h2>
-      <p className="text-[11px] text-slate-500 mb-3">
-        Phương pháp hiện tại: <b>tỉ lệ làm sai lịch sử + độ dài câu hỏi</b> (sai ≥60% → Khó, 30–60% → Trung bình, {'<'}30% → Dễ).
-        Kiến trúc mở — có thể thay bằng model ML thật mà không đổi API. Chủ đề hiện có: {topics.join(', ') || 'chưa có'}.
-      </p>
-      <div className="flex flex-col gap-2 max-h-[480px] overflow-auto">
-        {items.map((q) => {
-          const r = res[q.id];
-          return (
-            <div key={q.id} className="text-xs rounded-xl border border-slate-100 px-3 py-2.5 flex items-start gap-2">
-              <div className="flex-1">
-                <div className="font-semibold text-slate-700">{q.question}</div>
-                <div className="text-slate-500 mt-1">Hiện tại: <b>{DIFF_LABEL[q.difficulty] ?? q.difficulty}</b>
-                  {r && <> · ML gợi ý: <b className="text-primary">{DIFF_LABEL[r.suggested] ?? r.suggested}</b> (sai {r.wrong_rate === null ? '?' : Math.round(r.wrong_rate * 100) + `%`}/{r.attempts} lượt, tin cậy {r.confidence})</>}
-                </div>
-              </div>
-              <button type="button" onClick={() => check(q)} className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-bold cursor-pointer">Đánh giá</button>
-              {r && r.suggested !== q.difficulty && (
-                <button
-                  type="button"
-                  onClick={async () => { await updateBankQuestion(subject, q.id, { difficulty: r.suggested }); setItems((list) => list.map((x) => (x.id === q.id ? { ...x, difficulty: r.suggested } : x))); }}
-                  className="px-2.5 py-1.5 rounded-lg bg-primary text-white text-[11px] font-bold cursor-pointer"
-                >
-                  Áp dụng
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {items.length === 0 && <p className="text-xs text-slate-400">Chưa có câu hỏi.</p>}
-      </div>
-    </div>
-  );
-}

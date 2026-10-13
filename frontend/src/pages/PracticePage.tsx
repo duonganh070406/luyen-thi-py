@@ -35,7 +35,7 @@ function gradeLocal(q: Question, u: any): boolean | null {
   if (q.type === 'short_answer') {
     return String(u ?? '').trim().toLowerCase() === String(q.referenceAnswer ?? '').trim().toLowerCase();
   }
-  return null; // essay: cho AI cham, khong tu +diem
+  return null; // essay: cho giao vien cham tay, khong tu +diem
 }
 
 function isAnswered(q: Question, u: any): boolean {
@@ -103,7 +103,7 @@ function ReviewBody({ r }: { r: ResultRow }) {
       ) : null}
       {r.fb ? (
         <div className="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-900">
-          <span className="font-bold">Nhận xét AI: </span>
+          <span className="font-bold">Nhận xét: </span>
           <MarkdownRenderer content={r.fb} />
         </div>
       ) : null}
@@ -216,7 +216,6 @@ export default function PracticePage() {
           explanation: q.explanation, topic: q.topic, difficulty: q.difficulty,
         })),
         answers,
-        enableAIGrading: false,
       });
       getCompetency(subject).then(setCompetency).catch(() => {});
       getSubjectStats(subject).then((st) => setRecentErrors(st.recentErrors || [])).catch(() => {});
