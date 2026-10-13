@@ -46,43 +46,6 @@ def list_rooms(user: auth_store.AuthUser = Depends(auth_store.require_admin)):
     return {"rooms": store.load_rooms()}
 
 
-@router.get("/api/rooms/{room_id}")
-def get_room(room_id: str, user: auth_store.AuthUser = Depends(auth_store.require_admin)):
-    room = store.get_room(room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    return {"room": room}
-
-
-class RoomUpdateBody(BaseModel):
-    name: str | None = None
-    status: str | None = None
-    time_limit: int | None = None
-    max_violations: int | None = None
-    auto_submit: bool | None = None
-    show_answers: bool | None = None
-
-
-@router.put("/api/rooms/{room_id}")
-def update_room(room_id: str, body: RoomUpdateBody, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
-    fields: dict[str, Any] = {}
-    if body.name is not None:
-        fields["name"] = body.name
-    if body.status in ("open", "closed"):
-        fields["status"] = body.status
-    if body.time_limit is not None:
-        fields["time_limit"] = max(1, int(body.time_limit))
-    if body.max_violations is not None:
-        fields["max_violations"] = max(1, int(body.max_violations))
-    if body.auto_submit is not None:
-        fields["auto_submit"] = bool(body.auto_submit)
-    if body.show_answers is not None:
-        fields["show_answers"] = bool(body.show_answers)
-    if not store.update_room_fields(room_id, fields):
-        raise HTTPException(status_code=404, detail="Không tìm thấy phòng.")
-    return {"ok": True}
-
-
 @router.post("/api/rooms/{room_id}/close")
 def close_room(room_id: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)):
     """Quan tri vien dong bai thi: khoa phong, tu dong thu bai tat ca."""

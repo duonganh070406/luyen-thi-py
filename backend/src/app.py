@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import DATA_ROOT, get_cors_origins
 from src.routes import auth, bank, browse, health, rooms, subjects
 
+# Tai lieu API tuong tac (Swagger/Redoc) lo toan bo so do endpoint + schema:
+# tat mac dinh, chi bat khi can debug voi ENABLE_DOCS=1.
+_ENABLE_DOCS = os.getenv("ENABLE_DOCS", "").strip().lower() in ("1", "true", "yes")
+
 app = FastAPI(
     title="He thong kiem tra danh gia",
     version="1.0.0",
-    docs_url="/swagger",  # Swagger UI at /swagger
-    redoc_url="/redoc",
+    docs_url="/swagger" if _ENABLE_DOCS else None,
+    redoc_url="/redoc" if _ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if _ENABLE_DOCS else None,
 )
 
 app.add_middleware(

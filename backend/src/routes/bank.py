@@ -222,58 +222,6 @@ def replace_bank(
     return {"ok": True, "saved": len(clean), "total": len(clean), "errors": errors[:20]}
 
 
-@router.post("/api/subjects/{subject}/import")
-async def import_file(
-    subject: str,
-    file: UploadFile,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-) -> dict[str, Any]:
-    # Dam bao mon ton tai (tu tao thu muc neu chua co)
-    from src.config import DATA_ROOT
-
-    name = (file.filename or "").strip()
-    lower = name.lower()
-    data = await file.read()
-    if not data:
-        raise HTTPException(status_code=400, detail="File rỗng.")
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="File quá lớn (tối đa 10MB).")
-    try:
-        if lower.endswith(".csv"):
-            rows = bank_store.read_csv_bytes(data)
-        elif lower.endswith((".xlsx", ".xlsm", ".xltx")):
-            rows = bank_store.read_xlsx_bytes(data)
-        elif lower.endswith(".xls"):
-            raise HTTPException(status_code=400, detail="File .xls cũ không được hỗ trợ. Hãy Save As .xlsx hoặc .csv.")
-        else:
-            # thu doan csv truoc, neu that bai thi bao loi dinh dang
-            try:
-                rows = bank_store.read_csv_bytes(data)
-            except Exception:
-                raise HTTPException(status_code=400, detail="Định dạng không hỗ trợ. Hãy dùng .xlsx hoặc .csv.")
-        items, errors = bank_store.parse_rows(rows)
-        if not items:
-            raise HTTPException(
-                status_code=400,
-                detail="Không đọc được câu hỏi nào. " + (" ".join(errors[:3])),
-            )
-        # tu tao subject dir neu chua co
-        subject_dir = DATA_ROOT / subject.strip()
-        subject_dir.mkdir(parents=True, exist_ok=True)
-        (subject_dir / "markdown").mkdir(parents=True, exist_ok=True)
-        try:
-            with store.session() as conn:
-                store.subject_ensure(conn, subject.strip())
-        except Exception:
-            pass
-        res = bank_store.import_items(subject, items)
-        return {"ok": True, "filename": name, "errors": errors[:20], **res}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi import: {e}")
-
-
 # ---------- Luyen thi: chon chu de hon hop + do kho + so luong + tron ----------
 
 class PracticeBody(BaseModel):
