@@ -13,10 +13,22 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url(path), {
     ...init,
     headers: {
+      ...authHeaders(),
       ...(isBody ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers as Record<string, string> | undefined),
     },
   });
+  if (res.status === 401 && !path.startsWith('/api/auth')) {
+    // Token het han/khong hop le: dang xuat cuc bo + ve trang dang nhap.
+    // Khong tu dong chuyen khi dang goi API auth (sai mat khau) hoac an danh.
+    if (localStorage.getItem('eq_token')) {
+      localStorage.removeItem('eq_token');
+      localStorage.removeItem('eq_user');
+      if (!window.location.hash.startsWith('#/dang-nhap')) {
+        window.location.hash = '#/dang-nhap';
+      }
+    }
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);

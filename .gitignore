@@ -36,3 +36,6 @@ backend/scripts/test/
 .backup_images/
 
 .*/
+
+
+scratch/*

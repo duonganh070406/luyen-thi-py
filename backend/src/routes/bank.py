@@ -19,7 +19,12 @@ router = APIRouter()
 # ---------- Ngan hang de ----------
 
 @router.get("/api/subjects/{subject}/bank")
-def get_bank(subject: str, topic: str = "", difficulty: str = "") -> dict[str, Any]:
+def get_bank(
+    subject: str,
+    topic: str = "",
+    difficulty: str = "",
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     items = bank_store.load_bank(subject)
     if topic:
         items = [q for q in items if str(q.get("topic", "")).strip().lower() == topic.strip().lower()]
@@ -30,7 +35,10 @@ def get_bank(subject: str, topic: str = "", difficulty: str = "") -> dict[str, A
 
 
 @router.get("/api/subjects/{subject}/bank/topics")
-def get_topics(subject: str) -> dict[str, Any]:
+def get_topics(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     return {"topics": bank_store.bank_topics(subject), "counts": bank_store.bank_counts(subject)}
 
 
@@ -277,7 +285,11 @@ class PracticeBody(BaseModel):
 
 
 @router.post("/api/subjects/{subject}/practice-quiz")
-def practice_quiz(subject: str, body: PracticeBody) -> list[Any]:
+def practice_quiz(
+    subject: str,
+    body: PracticeBody,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> list[Any]:
     pool = bank_store.unified_questions(subject)
     count = max(1, min(int(body.count or 10), 200))
     picked = bank_store.pick_with_mix(
@@ -298,7 +310,10 @@ def practice_quiz(subject: str, body: PracticeBody) -> list[Any]:
 # ---------- Bieu do nang luc: dung/sai theo chu de + do kho ----------
 
 @router.get("/api/subjects/{subject}/competency")
-def competency(subject: str) -> dict[str, Any]:
+def competency(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     resolve_subject_dir(subject)
     with store.session() as conn:
         history = store.history_list(conn, subject)
@@ -337,14 +352,23 @@ def competency(subject: str) -> dict[str, Any]:
 # ---------- ML goi y do kho ----------
 
 @router.get("/api/subjects/{subject}/ml-difficulty")
-def ml_difficulty(subject: str, question_id: str = "", question: str = "") -> dict[str, Any]:
+def ml_difficulty(
+    subject: str,
+    question_id: str = "",
+    question: str = "",
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     return bank_store.suggest_difficulty(subject, question_id or None, question or None)
 
 
 # ---------- Bao loi cau hoi ----------
 
 @router.post("/api/subjects/{subject}/reports")
-def create_report(subject: str, body: dict[str, Any]) -> dict[str, Any]:
+def create_report(
+    subject: str,
+    body: dict[str, Any],
+    user: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     resolve_subject_dir(subject)
     qid = str(body.get("question_id") or body.get("questionId") or "")
     msg = str(body.get("message") or "").strip()
@@ -355,7 +379,7 @@ def create_report(subject: str, body: dict[str, Any]) -> dict[str, Any]:
         "subject": subject.strip(),
         "question_id": qid,
         "message": msg,
-        "reporter": str(body.get("reporter") or "an danh"),
+        "reporter": str(body.get("reporter") or user.username or "an danh"),
         "status": "moi",
         "created_at": int(time.time()),
     }

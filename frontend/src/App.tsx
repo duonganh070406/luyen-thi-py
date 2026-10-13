@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, type ReactElement } from 'react';
 import { Loader2, Menu, BookOpen, Settings2 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { useNavigate, useParams, useLocation, Routes, Route, Navigate } from 'react-router-dom';
@@ -366,6 +366,15 @@ function AppContent() {
   );
 }
 
+function RequireAuth({ children }: { children: ReactElement }) {
+  // Khu on luyen chua de + dap an: chan truy cap truc tiep khi chua dang nhap.
+  // Trang phong thi (/phong-thi) van mo vi dung ma phong + ticket rieng.
+  if (!localStorage.getItem('eq_token')) {
+    return <Navigate to="/dang-nhap" replace />;
+  }
+  return children;
+}
+
 export default function App() {
   const location = useLocation();
   // Khung lam viec mon hoc (/subject/...) tu quan ly chieu cao + khong can footer
@@ -377,19 +386,19 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/gioi-thieu" element={<AboutPage />} />
-          <Route path="/luyen-thi" element={<PracticePage />} />
+          <Route path="/luyen-thi" element={<RequireAuth><PracticePage /></RequireAuth>} />
           <Route path="/phong-thi" element={<ExamRoomPage />} />
           <Route path="/lien-he" element={<ContactPage />} />
           <Route path="/dang-nhap" element={<LoginPage />} />
           <Route path="/dang-ky" element={<RegisterPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin/:tab?" element={<AdminPage />} />
-          <Route path="/subject/:subjectId" element={<AppContent />} />
-          <Route path="/subject/:subjectId/note/*" element={<AppContent />} />
-          <Route path="/subject/:subjectId/exam/*" element={<AppContent />} />
-          <Route path="/subject/:subjectId/flashcard/*" element={<AppContent />} />
-          <Route path="/subject/:subjectId/quiz/random" element={<AppContent />} />
-          <Route path="/subject/:subjectId/history/:attemptId" element={<AppContent />} />
+          <Route path="/subject/:subjectId" element={<RequireAuth><AppContent /></RequireAuth>} />
+          <Route path="/subject/:subjectId/note/*" element={<RequireAuth><AppContent /></RequireAuth>} />
+          <Route path="/subject/:subjectId/exam/*" element={<RequireAuth><AppContent /></RequireAuth>} />
+          <Route path="/subject/:subjectId/flashcard/*" element={<RequireAuth><AppContent /></RequireAuth>} />
+          <Route path="/subject/:subjectId/quiz/random" element={<RequireAuth><AppContent /></RequireAuth>} />
+          <Route path="/subject/:subjectId/history/:attemptId" element={<RequireAuth><AppContent /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

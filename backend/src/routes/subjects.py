@@ -249,14 +249,21 @@ async def test_ai_config_endpoint(
 
 
 @router.get("/api/subjects/{subject}/exams")
-def list_subject_exams(subject: str) -> list[str]:
+def list_subject_exams(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> list[str]:
     """Trả về danh sách tên các file đề thi trong môn học."""
     subject_dir = resolve_subject_dir(subject)
     return get_exam_files(subject_dir)
 
 
 @router.get("/api/subjects/{subject}/exams/{exam_name:path}")
-def get_exam_data(subject: str, exam_name: str) -> list[Any]:
+def get_exam_data(
+    subject: str,
+    exam_name: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> list[Any]:
     """Trả về nội dung câu hỏi của một đề thi cụ thể."""
     subject_dir = resolve_subject_dir(subject)
     md_dir = subject_dir / "markdown"
@@ -282,28 +289,11 @@ def get_exam_data(subject: str, exam_name: str) -> list[Any]:
         ) from e
 
 
-@router.get("/api/subjects/{subject}/data")
-def get_subject_data(subject: str) -> list[Any]:
-    """Legacy: Lấy dữ liệu từ file đề đầu tiên tìm thấy."""
-    subject_dir = resolve_subject_dir(subject)
-    exams = get_exam_files(subject_dir)
-    if not exams:
-        raise HTTPException(status_code=404, detail="No exams found")
-
-    md_dir = subject_dir / "markdown"
-    try:
-        first_exam_path = (md_dir / exams[0]).resolve()
-        img_base = _image_base_url(first_exam_path.parent)
-        return parse_exam_file(first_exam_path, image_base_url=img_base)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to parse markdown: {str(e)}",
-        ) from e
-
-
 @router.get("/api/subjects/{subject}/history")
-def get_history(subject: str) -> list[Any]:
+def get_history(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> list[Any]:
     """Lấy toàn bộ lịch sử làm bài của môn học."""
     resolve_subject_dir(subject)
     with store.session() as conn:
@@ -311,14 +301,21 @@ def get_history(subject: str) -> list[Any]:
 
 
 @router.get("/api/subjects/{subject}/notes")
-def list_subject_notes(subject: str) -> list[str]:
+def list_subject_notes(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> list[str]:
     """Trả về danh sách tên các file ghi chú .md trong môn học."""
     subject_dir = resolve_subject_dir(subject)
     return get_note_files(subject_dir)
 
 
 @router.get("/api/subjects/{subject}/notes/{note_name:path}")
-def get_note_content(subject: str, note_name: str) -> dict[str, str]:
+def get_note_content(
+    subject: str,
+    note_name: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, str]:
     """Trả về nội dung một file ghi chú cụ thể."""
     subject_dir = resolve_subject_dir(subject)
     note_dir = subject_dir / "note"
@@ -345,7 +342,11 @@ def get_note_content(subject: str, note_name: str) -> dict[str, str]:
 
 
 @router.post("/api/subjects/{subject}/history", status_code=201)
-async def append_history(subject: str, body: HistoryAttemptCreate) -> dict[str, Any]:
+async def append_history(
+    subject: str,
+    body: HistoryAttemptCreate,
+    user: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     """Ghi thêm một lần làm bài mới vào lich su (SQLite) sau khi chấm điểm ở backend."""
     resolve_subject_dir(subject)
 
@@ -473,6 +474,7 @@ async def append_history(subject: str, body: HistoryAttemptCreate) -> dict[str, 
     graded_attempt = {
         "attemptId": body.attemptId,
         "timestamp": timestamp_str,
+        "username": user.username,
         "summary": {
             "score": correct,
             "total": len(body.questions),
@@ -497,7 +499,11 @@ async def append_history(subject: str, body: HistoryAttemptCreate) -> dict[str, 
 
 
 @router.delete("/api/subjects/{subject}/history/{attempt_id}", status_code=200)
-def delete_history_attempt(subject: str, attempt_id: str) -> dict[str, Any]:
+def delete_history_attempt(
+    subject: str,
+    attempt_id: str,
+    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+) -> dict[str, Any]:
     """Xóa một attempt cụ thể trong lich su."""
     resolve_subject_dir(subject)
     with store.session() as conn:
@@ -512,6 +518,7 @@ def delete_history_attempt(subject: str, attempt_id: str) -> dict[str, Any]:
 def get_comprehensive_quiz(
     subject: str,
     quiz_config: QuizConfigModel,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
     """Tổng hợp tất cả câu hỏi từ các đề và chọn ngẫu nhiên theo loại."""
     subject_dir = resolve_subject_dir(subject)
@@ -707,7 +714,10 @@ def get_comprehensive_quiz(
 
 
 @router.get("/api/subjects/{subject}/stats")
-def get_subject_stats(subject: str) -> dict[str, Any]:
+def get_subject_stats(
+    subject: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
     """Thống kê các câu hỏi hay sai và sai gần đây."""
     resolve_subject_dir(subject)
     with store.session() as conn:
