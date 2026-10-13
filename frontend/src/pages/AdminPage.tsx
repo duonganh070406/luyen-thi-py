@@ -48,12 +48,6 @@ export default function AdminPage() {
     reloadSubjects();
   }, [navigate, reloadSubjects]);
 
-  // Doi tab luon ve dau trang: HashRouter giu nguyen vi tri cuon cu
-  // lam noi dung "nhay" doc khi tab moi ngan/dai hon tab cu.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [tab]);
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <h1 className="text-xl font-extrabold text-primary uppercase tracking-wide">Quản trị hệ thống</h1>
@@ -79,11 +73,7 @@ export default function AdminPage() {
           </select>
         </label>
       </div>
-      {/* Vung noi dung cuon NOI BO voi chieu cao co dinh theo viewport:
-          cua so trinh duyet khong bao gio phai hien scrollbar khi doi tab,
-          nen be rong trang admin luon on dinh (rong nhu tab ML).
-          340px ≈ SiteNav (~130) + tieu de/tab (~110) + padding + SiteFooter (~70). */}
-      <div className="pt-4 h-[calc(100dvh-340px)] min-h-[420px] overflow-y-auto overscroll-contain pr-1">
+      <div className="pt-4">
       {tab === 'bank' && <BankTab subjects={subjects} onChanged={(id) => { reloadSubjects(); if (id) setSubject(id); }} />}
       {tab === 'rooms' && <RoomsTab subjects={subjects} />}
       {tab === 'units' && <UnitsTab />}
