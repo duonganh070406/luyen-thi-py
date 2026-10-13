@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -7,15 +5,16 @@ services:
       dockerfile: Dockerfile
     container_name: eduquest-backend
     ports:
-      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - ./backend:/app
+      # Du lieu SQLite + backup song tren host (./data), mount vao /data
       - ./data:/data
-    env_file:
-      - .env
     environment:
-      - BACKEND_PORT=${BACKEND_PORT:-8000}
-    restart: "no"
+      - DATA_DIR=/data
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    restart: unless-stopped
 
   frontend:
     build:
@@ -23,16 +22,11 @@ services:
       dockerfile: Dockerfile
     container_name: eduquest-frontend
     ports:
-      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules # Tránh ghi đè node_modules từ host vào container
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - FRONTEND_PORT=3000
+      - VITE_PROXY_HOST=backend
+      - BACKEND_PORT=8000
     depends_on:
       - backend
-    env_file:
-      - .env
-    environment:
-      - FRONTEND_PORT=${FRONTEND_PORT:-3000}
-      - BACKEND_PORT=${BACKEND_PORT:-8000}
-      - VITE_PROXY_HOST=backend
-    restart: "no"
+    restart: unless-stopped

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from src import auth as auth_store
 from src import bank as bank_store
 from src import db as store
-from src.utils import resolve_subject_dir
+from src.utils import require_subject
 
 router = APIRouter()
 
@@ -170,12 +170,7 @@ def replace_bank(
 ) -> dict[str, Any]:
     """Ghi DE TOAN BO ngan hang de (tao bo moi neu chua co).
     Dung cho: Luu bo de sau khi preview import + Luu thay doi sau khi sua staged."""
-    from src.config import DATA_ROOT
-
     name = _sanitize_subject_name(subject)
-    subject_dir = DATA_ROOT / name
-    subject_dir.mkdir(parents=True, exist_ok=True)
-    (subject_dir / "markdown").mkdir(parents=True, exist_ok=True)
     try:
         with store.session() as conn:
             store.subject_ensure(conn, name)
@@ -262,7 +257,7 @@ def competency(
     subject: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
-    resolve_subject_dir(subject)
+    require_subject(subject)
     with store.session() as conn:
         history = store.history_list(conn, subject)
     # map qid -> (topic, difficulty) tu bank hien tai
@@ -317,7 +312,7 @@ def create_report(
     body: dict[str, Any],
     user: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
-    resolve_subject_dir(subject)
+    require_subject(subject)
     qid = str(body.get("question_id") or body.get("questionId") or "")
     msg = str(body.get("message") or "").strip()
     if not qid or not msg:
@@ -342,7 +337,7 @@ def create_report(
 @router.get("/api/subjects/{subject}/reports")
 def list_reports(subject: str, _: auth_store.AuthUser = Depends(auth_store.require_admin)) -> dict[str, Any]:
     try:
-        resolve_subject_dir(subject)
+        require_subject(subject)
         with store.session() as conn:
             items = store.reports_list(conn, subject)
     except Exception:
@@ -361,7 +356,7 @@ def update_report(
     body: ReportStatusBody,
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ):
-    resolve_subject_dir(subject)
+    require_subject(subject)
     try:
         with store.session() as conn:
             found = store.report_set_status(conn, subject, rid, body.status)

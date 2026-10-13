@@ -28,9 +28,12 @@ def _rewrite_image_urls(text: str, image_base_url: str) -> str:
 
 
 def parse_md(filepath, image_base_url: str = ""):
-
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
+    return parse_md_content(text, image_base_url=image_base_url)
+
+
+def parse_md_content(text: str, image_base_url: str = ""):
 
     # Rewrite relative image URLs → absolute URL paths served by /data/ static mount
     if image_base_url:

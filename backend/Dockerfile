@@ -2,16 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Cài đặt dependencies từ requirements.txt
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy mã nguồn
 COPY main.py .
 COPY src/ ./src/
 
-# Thư mục data sẽ được mount qua volume ở docker-compose
-RUN mkdir -p data
+ENV DATA_DIR=/data
+ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 
+EXPOSE 8000
 
 CMD ["python", "main.py"]

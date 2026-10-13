@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from src import auth as auth_store
 from src import db as store
-from src.config import DATA_ROOT
 from src.bank import pick_with_mix, shuffle_options
 from src.models import (
     HistoryAttemptCreate,
@@ -22,14 +21,10 @@ from src.models import (
     QuizConfigModel,
 )
 from src.utils import (
-    _image_base_url,
-    get_exam_files,
-    get_note_files,
-    has_exam_files,
-    parse_exam_file,
-    read_note_content,
-    resolve_subject_dir,
-    read_subject_config,
+    note_content,
+    parse_exam_content,
+    require_subject,
+    subject_image_base,
 )
 from src.config_manager import read_ai_config, write_ai_config
 from src.grading_strategies import (
@@ -80,26 +75,10 @@ GradingRegistry.register(MatchingGrading())
 
 @router.get("/api/subjects", response_model=list[SubjectDetailResponse])
 def list_subjects(include_inactive: bool = False) -> list[SubjectDetailResponse]:
-    """Liệt kê các môn học hợp lệ (DB la nguon chinh + tu nhan thu muc co noi dung)."""
+    """Liệt kê các môn học (DB la nguon chinh duy nhat)."""
     subjects: list[SubjectDetailResponse] = []
     with store.session() as conn:
         known = {s["name"]: s for s in store.subjects_all(conn)}
-    if DATA_ROOT.is_dir():
-        for entry in sorted(DATA_ROOT.iterdir(), key=lambda p: p.name.lower()):
-            if not entry.is_dir():
-                continue
-            with store.session() as conn:
-                has_bank = store.bank_count(conn, entry.name) > 0
-            if not has_exam_files(entry) and not has_bank:
-                continue
-            if entry.name not in known:
-                # thu muc them tay ngoai DB: tu tao dong mac dinh
-                try:
-                    with store.session() as conn:
-                        store.subject_ensure(conn, entry.name)
-                except Exception:
-                    pass
-                known[entry.name] = {"name": entry.name, "active": True, "description": "", "other_information": ""}
     for name in sorted(known.keys(), key=lambda s: s.lower()):
         cfg = known[name]
         # Ẩn môn học nếu active là False và không yêu cầu hiển thị tất cả
@@ -126,7 +105,7 @@ def update_subject_config(
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ) -> dict[str, Any]:
     """Cập nhật cấu hình mon hoc (luu SQLite)."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     config_dict = config.model_dump(mode="json")
     try:
         with store.session() as conn:
@@ -282,9 +261,10 @@ def list_subject_exams(
     subject: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[str]:
-    """Trả về danh sách tên các file đề thi trong môn học."""
-    subject_dir = resolve_subject_dir(subject)
-    return get_exam_files(subject_dir)
+    """Trả về danh sách tên các đề thi trong môn học (luu trong DB)."""
+    subject = require_subject(subject)
+    with store.session() as conn:
+        return store.exams_list(conn, subject)
 
 
 @router.get("/api/subjects/{subject}/exams/{exam_name:path}")
@@ -293,24 +273,19 @@ def get_exam_data(
     exam_name: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
-    """Trả về nội dung câu hỏi của một đề thi cụ thể."""
-    subject_dir = resolve_subject_dir(subject)
-    md_dir = subject_dir / "markdown"
+    """Trả về nội dung câu hỏi của một đề thi cụ thể (luu trong DB)."""
+    subject = require_subject(subject)
     unquoted = urllib.parse.unquote(exam_name).strip()
-    exam_path = (md_dir / unquoted).resolve()
-
-    # Bảo mật: không cho phép đọc file ngoài thư mục markdown
-    try:
-        exam_path.relative_to(md_dir.resolve())
-    except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    if not exam_path.is_file():
+    with store.session() as conn:
+        row = store.exam_get(conn, subject, unquoted)
+    if row is None:
         raise HTTPException(status_code=404, detail="Exam not found")
 
     try:
-        img_base = _image_base_url(exam_path.parent)
-        return parse_exam_file(exam_path, image_base_url=img_base)
+        return parse_exam_content(
+            subject, unquoted, row.get("content", ""),
+            image_base_url=subject_image_base(subject),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -324,7 +299,7 @@ def get_history(
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
     """Lấy toàn bộ lịch sử làm bài của môn học."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     with store.session() as conn:
         return store.history_list(conn, subject)
 
@@ -336,7 +311,7 @@ def get_history_attempt(
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
     """Lay chi tiet mot lan lam bai (phuc vu F5 trang ket qua)."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     with store.session() as conn:
         for att in store.history_list(conn, subject):
             if str(att.get("attemptId")) == attempt_id:
@@ -349,9 +324,10 @@ def list_subject_notes(
     subject: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[str]:
-    """Trả về danh sách tên các file ghi chú .md trong môn học."""
-    subject_dir = resolve_subject_dir(subject)
-    return get_note_files(subject_dir)
+    """Trả về danh sách tên các file ghi chú .md trong môn học (luu trong DB)."""
+    subject = require_subject(subject)
+    with store.session() as conn:
+        return store.notes_list(conn, subject)
 
 
 @router.get("/api/subjects/{subject}/notes/{note_name:path}")
@@ -360,23 +336,19 @@ def get_note_content(
     note_name: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, str]:
-    """Trả về nội dung một file ghi chú cụ thể."""
-    subject_dir = resolve_subject_dir(subject)
-    note_dir = subject_dir / "note"
+    """Trả về nội dung một file ghi chú cụ thể (luu trong DB)."""
+    subject = require_subject(subject)
     unquoted = urllib.parse.unquote(note_name).strip()
-    note_path = (note_dir / unquoted).resolve()
-
-    try:
-        note_path.relative_to(note_dir.resolve())
-    except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    if not note_path.is_file():
+    with store.session() as conn:
+        row = store.note_get(conn, subject, unquoted)
+    if row is None:
         raise HTTPException(status_code=404, detail="Note not found")
 
     try:
-        img_base = _image_base_url(note_path.parent)
-        content = read_note_content(note_path, image_base_url=img_base)
+        content = note_content(
+            row.get("content", ""),
+            image_base_url=subject_image_base(subject),
+        )
         return {"content": content}
     except Exception as e:
         raise HTTPException(
@@ -392,7 +364,7 @@ async def append_history(
     user: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
     """Ghi thêm một lần làm bài mới vào lich su (SQLite) sau khi chấm điểm ở backend."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
 
     ai_config = read_ai_config()
     enable_ai = body.enableAIGrading and ai_config.get("enableAIGrading", True)
@@ -538,7 +510,7 @@ def delete_history_attempt(
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ) -> dict[str, Any]:
     """Xóa một attempt cụ thể trong lich su."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     with store.session() as conn:
         found = store.history_delete(conn, subject, attempt_id)
         total = len(store.history_list(conn, subject))
@@ -560,7 +532,7 @@ async def ai_feedback(
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
     """Nhan xet bai tu luan phia server — API key AI khong bao gio roi may chu."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     if not body.draft.strip():
         raise HTTPException(status_code=400, detail="Cần bài làm nháp để nhận xét.")
     ai_config = read_ai_config()
@@ -589,10 +561,10 @@ def get_comprehensive_quiz(
     quiz_config: QuizConfigModel,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
-    """Tổng hợp tất cả câu hỏi từ các đề và chọn ngẫu nhiên theo loại."""
-    subject_dir = resolve_subject_dir(subject)
-    exam_files = get_exam_files(subject_dir)
-    md_dir = subject_dir / "markdown"
+    """Tổng hợp tất cả câu hỏi từ các đề (luu trong DB) và chọn ngẫu nhiên theo loại."""
+    subject = require_subject(subject)
+    with store.session() as conn:
+        exam_files = store.exams_list(conn, subject)
 
     if quiz_config.sources:
         allowed = {s.lower() for s in quiz_config.sources}
@@ -616,11 +588,15 @@ def get_comprehensive_quiz(
         exam_files = filtered
 
     all_questions = []
-    for exam_file in exam_files:
-        exam_path = md_dir / exam_file
+    img_base = subject_image_base(subject)
+    with store.session() as conn:
+        exam_contents = [
+            (f, (store.exam_get(conn, subject, f) or {}).get("content", ""))
+            for f in exam_files
+        ]
+    for exam_file, content in exam_contents:
         try:
-            img_base = _image_base_url(exam_path.parent)
-            questions = parse_exam_file(exam_path, image_base_url=img_base)
+            questions = parse_exam_content(subject, exam_file, content, image_base_url=img_base)
             all_questions.extend(questions)
         except Exception:
             pass  # Bỏ qua nếu lỗi parse
@@ -788,7 +764,7 @@ def get_subject_stats(
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
     """Thống kê các câu hỏi hay sai và sai gần đây."""
-    resolve_subject_dir(subject)
+    require_subject(subject)
     with store.session() as conn:
         history = store.history_list(conn, subject)
 

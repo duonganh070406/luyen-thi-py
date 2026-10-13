@@ -9,6 +9,7 @@ RUN npm install
 # Copy toàn bộ mã nguồn
 COPY . .
 
-# Vite dev server sẽ chạy dựa trên config trong vite.config.ts (đọc từ .env)
-# Chúng ta không cần build static vì user muốn đơn giản
-CMD ["npm", "run", "dev"]
+# Vite dev server trong container bat buoc --host 0.0.0.0 moi truy cap duoc tu ngoai
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
