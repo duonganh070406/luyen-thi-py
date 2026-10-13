@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
 
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'Hệ thống kiểm tra đánh giá';
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
+
 /** Chan trang do dam kieu cong an. */
 export default function SiteFooter() {
   return (
@@ -7,7 +10,7 @@ export default function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3 text-center sm:text-left">
         <div className="leading-relaxed">
           <p className="text-[11px] font-extrabold uppercase tracking-widest text-white">
-            Hệ thống kiểm tra đánh giá
+            {APP_NAME}
           </p>
           <p className="text-[11px] uppercase tracking-wider text-white/70">
             Bộ Công an – Cục An ninh mạng
@@ -17,7 +20,7 @@ export default function SiteFooter() {
           </p>
         </div>
         <div className="text-[11px] text-white/60 leading-relaxed sm:text-right">
-          <p>Phiên bản 1.0.0</p>
+          <p>Phiên bản {APP_VERSION}</p>
           <p>
             <Link to="/gioi-thieu" className="hover:text-gold-light underline underline-offset-2">Hướng dẫn</Link>
             {' · '}

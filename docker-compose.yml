@@ -13,7 +13,11 @@ services:
       - DATA_DIR=/data
       - PORT=8000
       - PYTHONUNBUFFERED=1
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - APP_NAME=${APP_NAME:-}
+      - APP_VERSION=${APP_VERSION:-}
+      - BACKEND_URL=${BACKEND_URL:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     restart: unless-stopped
 
   frontend:
@@ -27,6 +31,9 @@ services:
       - FRONTEND_PORT=3000
       - VITE_PROXY_HOST=backend
       - BACKEND_PORT=8000
+      - VITE_APP_NAME=${APP_NAME:-}
+      - VITE_APP_VERSION=${APP_VERSION:-}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
     depends_on:
       - backend
     restart: unless-stopped

@@ -1,6 +1,9 @@
 # Môi trường và cấu hình cá nhân
+# File `.env` (moi cap: root/backend/frontend) KHONG commit;
+# file `.env.sample` la mac dinh chung, commit thoai mai.
 .env
 *.env
+!.env.sample
 backend/config/*
 
 # Python cache & artifacts

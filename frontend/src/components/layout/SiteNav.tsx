@@ -13,6 +13,8 @@ const LINKS = [
   { to: '/lien-he', label: 'Liên hệ' },
 ];
 
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'Hệ thống kiểm tra đánh giá';
+
 /** Header 2 tang kieu cong an: thanh thuong hieu trang + thanh dieu huong do. */
 export default function SiteNav() {
   const [user, setUser] = useState(currentUser());
@@ -57,7 +59,7 @@ export default function SiteNav() {
             <span className="leading-tight">
               <span className="block text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Bộ Công an</span>
               <span className="block text-sm md:text-base font-extrabold tracking-wide text-primary uppercase">Cục An ninh mạng</span>
-              <span className="block text-[9px] md:text-[10px] font-medium tracking-wider text-slate-500 uppercase">Hệ thống kiểm tra đánh giá</span>
+              <span className="block text-[9px] md:text-[10px] font-medium tracking-wider text-slate-500 uppercase">{APP_NAME}</span>
             </span>
           </button>
           <div className="hidden sm:flex items-center gap-2.5 text-right shrink-0">

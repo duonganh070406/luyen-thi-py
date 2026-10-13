@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.config import DATA_ROOT, get_cors_origins
+from src.config import APP_NAME, APP_VERSION, DATA_ROOT, get_cors_origins
 from src.routes import auth, bank, browse, health, rooms, subjects
 
 # Tai lieu API tuong tac (Swagger/Redoc) lo toan bo so do endpoint + schema:
@@ -15,8 +15,8 @@ from src.routes import auth, bank, browse, health, rooms, subjects
 _ENABLE_DOCS = os.getenv("ENABLE_DOCS", "").strip().lower() in ("1", "true", "yes")
 
 app = FastAPI(
-    title="He thong kiem tra danh gia",
-    version="1.0.0",
+    title=APP_NAME,
+    version=APP_VERSION,
     docs_url="/swagger" if _ENABLE_DOCS else None,
     redoc_url="/redoc" if _ENABLE_DOCS else None,
     openapi_url="/openapi.json" if _ENABLE_DOCS else None,
