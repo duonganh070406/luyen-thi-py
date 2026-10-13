@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from src import auth as auth_store
 from src import examrooms as store
-from src.utils import load_units, save_units
+from src.utils import load_units, require_subject, save_units
 
 router = APIRouter()
 
@@ -37,6 +37,8 @@ class RoomCreateBody(BaseModel):
 def create_room(body: RoomCreateBody, user: auth_store.AuthUser = Depends(auth_store.require_admin)):
     if not body.subject.strip():
         raise HTTPException(status_code=400, detail="Cần chọn môn (subject) cho phòng thi.")
+    # Mon phai ton tai: tranh phong ma (join tra 0 cau, nop 0/0).
+    require_subject(body.subject)
     room = store.create_room(body.model_dump(mode="json"), created_by=user.username)
     return {"ok": True, "room": room}
 

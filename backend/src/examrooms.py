@@ -282,12 +282,13 @@ def is_expired(room: dict[str, Any], sess: dict[str, Any]) -> bool:
 
 
 def join_room(code: str, participant: str, unit: str = "", id_number: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
-    room = get_room_by_code(code)
-    if not room:
-        raise ValueError("Mã phòng thi không tồn tại.")
+    # Check ten TRUOC ma phong de khong lo cho ke doan ma nao ton tai.
     name = (participant or "").strip()
     if not name:
         raise ValueError("Vui lòng nhập tên để vào thi.")
+    room = get_room_by_code(code)
+    if not room:
+        raise ValueError("Mã phòng thi không tồn tại.")
     unit_name = (unit or "").strip()
     idn = (id_number or "").strip()
     with _lock_for(room["id"], name, idn):

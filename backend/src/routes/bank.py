@@ -25,6 +25,7 @@ def get_bank(
     difficulty: str = "",
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
+    subject = require_subject(subject)
     items = bank_store.load_bank(subject)
     if topic:
         items = [q for q in items if str(q.get("topic", "")).strip().lower() == topic.strip().lower()]
@@ -39,6 +40,7 @@ def get_topics(
     subject: str,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
+    subject = require_subject(subject)
     return {"topics": bank_store.bank_topics(subject), "counts": bank_store.bank_counts(subject)}
 
 
@@ -233,6 +235,7 @@ def practice_quiz(
     body: PracticeBody,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
+    subject = require_subject(subject)
     pool = bank_store.unified_questions(subject)
     count = max(1, min(int(body.count or 10), 200))
     picked = bank_store.pick_with_mix(
@@ -301,6 +304,7 @@ def ml_difficulty(
     question: str = "",
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> dict[str, Any]:
+    require_subject(subject)
     return bank_store.suggest_difficulty(subject, question_id or None, question or None)
 
 

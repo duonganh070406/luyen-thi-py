@@ -14,6 +14,10 @@ router = APIRouter()
 # Moi thu con lai (json chua hash mat khau/dap an/bai thi, .md de thi) chi admin.
 _PUBLIC_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico"}
 
+# File database (app.db, backup, WAL) TUYET DOI khong phuc vu qua HTTP
+# ke ca admin: lo toan bo hash mat khau + token + CCCD + dap an neu ro ri.
+_BLOCKED_EXTS = {".db", ".wal", ".shm", ".sqlite", ".sqlite3", ".db-journal"}
+
 
 def _resolve_data(path: str):
     from pathlib import Path as _P
@@ -39,6 +43,8 @@ def serve_data_file(path: str, authorization: str | None = Header(default=None))
     target = _resolve_data(path)
     if not target.is_file():
         raise HTTPException(status_code=404, detail="Path not found")
+    if target.suffix.lower() in _BLOCKED_EXTS:
+        raise HTTPException(status_code=403, detail="Không được phép tải file này.")
     if target.suffix.lower() not in _PUBLIC_EXTS and not _is_admin_token(authorization):
         raise HTTPException(status_code=403, detail="Cần quyền quản trị viên.")
     return FileResponse(path=str(target))

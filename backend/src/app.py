@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.config import DATA_ROOT, get_cors_origins
 from src.routes import auth, bank, browse, health, rooms, subjects
@@ -28,6 +30,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request, exc):
+    # Dung tra loi pydantic tho (tieng Anh + lo schema) ra client.
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại."},
+    )
 
 try:
     DATA_ROOT.mkdir(parents=True, exist_ok=True)

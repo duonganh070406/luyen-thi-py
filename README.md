@@ -158,7 +158,7 @@ Dữ liệu sống trên host ở `./data` (mount vào `/data`), rebuild image k
 | Method | Endpoint | Quyền | Mô tả |
 | :----- | :------- | :---- | :---- |
 | `GET` | `/health` | mở | Kiểm tra trạng thái backend |
-| `GET` | `/data/{path}` | ảnh: mở, còn lại: admin | File ảnh minh họa trong `data/` |
+| `GET` | `/data/{path}` | ảnh: mở, còn lại: admin (`*.db`/`*.wal` luôn 403) | File ảnh minh họa trong `data/` |
 | `POST` | `/api/auth/register` · `/api/auth/login` | mở | Tạo tài khoản / đăng nhập (mật khẩu ≥ 3 ký tự) |
 | `GET` | `/api/auth/me` · `PUT /api/auth/password` · `POST /api/auth/logout` | login | Phiên hiện tại / đổi mật khẩu / thu hồi token |
 | `GET` | `/api/auth/users` · `POST` · `PUT .../password` · `DELETE ...` | admin | Quản lý tài khoản |

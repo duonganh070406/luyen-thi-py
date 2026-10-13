@@ -36,9 +36,14 @@ def login(body: LoginBody):
     remaining = auth_store.lock_remaining(name)
     if remaining > 0:
         m, s = divmod(remaining, 60)
+        parts = []
+        if m:
+            parts.append(f"{m} phút")
+        if s or not parts:
+            parts.append(f"{s} giây")
         raise HTTPException(
             status_code=403,
-            detail=f"Tài khoản bị khóa {m} phút {s} giây vì nhập sai quá 5 lần. Hãy thử lại sau.",
+            detail=f"Tài khoản bị khóa {' '.join(parts)} vì nhập sai quá 5 lần. Hãy thử lại sau.",
         )
     u = auth_store.find_user(name)
     if not u or not auth_store.verify_password(body.password, u.get("password_hash", "")):
