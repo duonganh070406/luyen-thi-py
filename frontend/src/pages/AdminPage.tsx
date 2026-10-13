@@ -601,7 +601,7 @@ function ContactTab() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 max-w-xl">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="font-bold text-sm text-primary mb-1">Thông tin liên hệ</h2>
       <p className="text-[11px] text-slate-500 mb-3">Hiển thị ở trang Liên hệ cho mọi người xem.</p>
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 mb-3">{msg}</p>}
@@ -681,7 +681,7 @@ function UsersTab() {
 
   return (
     <div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4 max-w-xl">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 mb-4">
         <h2 className="font-bold text-sm text-primary mb-2">Tạo tài khoản mới</h2>
         <div className="grid sm:grid-cols-3 gap-2 mb-3">
           <input
