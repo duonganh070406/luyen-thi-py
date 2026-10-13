@@ -64,14 +64,14 @@ export default function AdminPage() {
           </button>
         ))}
         <div className="flex-1" />
-        {(tab === 'reports' || tab === 'ml') && (
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 pb-2">
-            Bộ câu hỏi:
-            <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none bg-white">
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
-        )}
+        {/* Luon render de hang tab giu chieu cao on dinh o moi tab (tranh nhay doc):
+            chi an bang invisible thay vi go khoi DOM. */}
+        <label className={`flex items-center gap-2 text-xs font-bold text-slate-600 pb-2 ${(tab === 'reports' || tab === 'ml') ? 'visible' : 'invisible'}`}>
+          Bộ câu hỏi:
+          <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none bg-white">
+            {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
       </div>
       <div className="pt-4">
       {tab === 'bank' && <BankTab subjects={subjects} onChanged={(id) => { reloadSubjects(); if (id) setSubject(id); }} />}
