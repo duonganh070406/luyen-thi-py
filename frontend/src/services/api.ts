@@ -416,6 +416,7 @@ export async function updateReport(subject: string, rid: string, status: string)
 export interface RoomPayload {
   name: string;
   subject: string;
+  subjects: string[];
   unit: string;
   topics: string[];
   difficulty: string;

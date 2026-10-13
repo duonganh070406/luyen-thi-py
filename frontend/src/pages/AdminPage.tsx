@@ -753,6 +753,12 @@ function UsersTab() {
 
 /* ---------------- Ky kiem tra ---------------- */
 
+function roomSubjectsLabel(r: any): string {
+  const list = Array.isArray(r?.subjects) ? r.subjects.filter((s: any) => String(s || '').trim()) : [];
+  if (list.length > 0) return list.join(', ');
+  return String(r?.subject || '');
+}
+
 function fmtRoomTime(ts: number): string {
   try {
     const d = new Date(Number(ts || 0) * 1000);
@@ -770,11 +776,11 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    name: '', subject: '', topics: [] as string[], difficulty: 'Hon hop',
+    name: '', subjects: [] as string[], topics: [] as string[], difficulty: 'Hon hop',
     count: 20, time_limit: 30, max_violations: 3,
     shuffle_questions: true, shuffle_options: true, auto_submit: false, show_answers: true,
   });
-  const [bankItems, setBankItems] = useState<any[]>([]);
+  const [bankBySubject, setBankBySubject] = useState<Record<string, any[]>>({});
   const [monitorId, setMonitorId] = useState('');
   const [monitor, setMonitor] = useState<any>(null);
   const [ranking, setRanking] = useState<any[]>([]);
@@ -818,22 +824,32 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
       );
       if (!stop) {
         setSubjCounts(Object.fromEntries(entries));
-        setForm((f) => (!f.subject && subjects.length > 0 ? { ...f, subject: subjects[0].id, topics: [] } : f));
+        setForm((f) => (f.subjects.length === 0 && subjects.length > 0 ? { ...f, subjects: [subjects[0].id], topics: [] } : f));
       }
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjects]);
 
-  // nap bank cua bo dang chon de lay chu de + dem cau theo lua chon
+  // nap bank cua CAC bo dang chon de lay chu de + dem cau theo lua chon
   useEffect(() => {
-    if (!form.subject) { setBankItems([]); return; }
+    if (form.subjects.length === 0) { setBankBySubject({}); return; }
     let stop = false;
-    getBank(form.subject).then((r) => {
-      if (!stop) setBankItems(r.items || []);
-    }).catch(() => { if (!stop) setBankItems([]); });
+    (async () => {
+      const entries = await Promise.all(
+        form.subjects.map(async (s) => {
+          try {
+            const r = await getBank(s);
+            return [s, r.items || []] as const;
+          } catch {
+            return [s, []] as const;
+          }
+        })
+      );
+      if (!stop) setBankBySubject(Object.fromEntries(entries));
+    })();
     return () => { stop = true; };
-  }, [form.subject]);
+  }, [form.subjects.join('|')]);
 
   // poll giám sát liên tục
   useEffect(() => {
@@ -854,18 +870,29 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     return () => { stop = true; };
   }, [monitorId]);
 
-  const topicCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const q of bankItems) {
-      const t = String((q as any)?.topic || 'Chung').trim() || 'Chung';
-      m.set(t, (m.get(t) || 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'vi'));
-  }, [bankItems]);
+  // chu de nhom theo tung bo (trung ten chu de giua cac bo duoc gop khi loc)
+  const topicsBySubject = useMemo(() => {
+    return form.subjects.map((s) => {
+      const m = new Map<string, number>();
+      for (const q of bankBySubject[s] || []) {
+        const t = String((q as any)?.topic || 'Chung').trim() || 'Chung';
+        m.set(t, (m.get(t) || 0) + 1);
+      }
+      return {
+        subject: s,
+        topics: [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'vi')),
+      };
+    });
+  }, [bankBySubject, form.subjects.join('|')]);
+
+  const mergedBank = useMemo(
+    () => Object.values(bankBySubject).flat(),
+    [bankBySubject]
+  );
 
   const selectedCount = form.topics.length === 0
-    ? bankItems.length
-    : bankItems.filter((q) => form.topics.includes(String((q as any)?.topic || 'Chung').trim() || 'Chung')).length;
+    ? mergedBank.length
+    : mergedBank.filter((q) => form.topics.includes(String((q as any)?.topic || 'Chung').trim() || 'Chung')).length;
 
   const toggleTopic = (t: string) => {
     setForm((f) => ({
@@ -874,13 +901,21 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     }));
   };
 
+  const toggleSubject = (id: string) => {
+    setForm((f) => ({
+      ...f,
+      subjects: f.subjects.includes(id) ? f.subjects.filter((x) => x !== id) : [...f.subjects, id],
+    }));
+  };
+
   const doCreate = async () => {
-    if (!form.subject) { setMsg('Cần chọn bộ câu hỏi.'); return; }
+    if (form.subjects.length === 0) { setMsg('Cần chọn ít nhất 1 bộ câu hỏi.'); return; }
     setBusy(true);
     try {
       const r = await createRoom({
         name: form.name.trim() || 'Kỳ kiểm tra',
-        subject: form.subject,
+        subject: form.subjects[0],
+        subjects: form.subjects,
         unit: '',
         topics: form.topics,
         difficulty: form.difficulty,
@@ -922,10 +957,23 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
               className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Bộ câu hỏi</label>
-            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, topics: [] })} className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]">
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name} ({subjCounts[s.id] ?? '…'} câu)</option>)}
-            </select>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Bộ câu hỏi (chọn nhiều)</label>
+            <div className="rounded-md border border-slate-200 bg-[#f7f8f9] px-2 py-1.5 max-h-[104px] overflow-y-auto flex flex-col gap-0.5">
+              {subjects.map((s) => {
+                const on = form.subjects.includes(s.id);
+                return (
+                  <label key={s.id} className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer text-[13px] ${on ? 'font-bold text-primary' : 'text-slate-700 hover:bg-white'}`}>
+                    <input
+                      type="checkbox" checked={on} onChange={() => toggleSubject(s.id)}
+                      className="accent-primary w-3.5 h-3.5 shrink-0"
+                    />
+                    <span className="flex-1 truncate">{s.name}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">({subjCounts[s.id] ?? '…'})</span>
+                  </label>
+                );
+              })}
+              {subjects.length === 0 && <p className="text-[11px] text-slate-400 px-1.5 py-1">Chưa có bộ câu hỏi.</p>}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Mức độ</label>
@@ -937,23 +985,32 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
 
         <div className="mb-3">
           <label className="block text-xs font-bold text-slate-700 mb-1.5">Chủ đề (để trống = tất cả)</label>
-          {topicCounts.length === 0 ? (
+          {topicsBySubject.every((g) => g.topics.length === 0) ? (
             <p className="text-[11px] text-slate-400">Bộ câu hỏi chưa có chủ đề nào.</p>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {topicCounts.map(([t, n]) => {
-                const on = form.topics.includes(t);
-                return (
-                  <button
-                    key={t} type="button" onClick={() => toggleTopic(t)}
-                    className={`px-2.5 py-1.5 rounded border text-[11px] cursor-pointer transition-colors ${
-                      on ? 'border-primary bg-primary text-white font-bold' : 'border-slate-300 bg-white text-slate-600 hover:border-primary/60 hover:text-primary'
-                    }`}
-                  >
-                    {t} ({n})
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-2">
+              {topicsBySubject.map((g) => (
+                g.topics.length > 0 && (
+                  <div key={g.subject}>
+                    <p className="text-[11px] font-bold text-slate-500 mb-1">{g.subject}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {g.topics.map(([t, n]) => {
+                        const on = form.topics.includes(t);
+                        return (
+                          <button
+                            key={t} type="button" onClick={() => toggleTopic(t)}
+                            className={`px-2.5 py-1.5 rounded border text-[11px] cursor-pointer transition-colors ${
+                              on ? 'border-primary bg-primary text-white font-bold' : 'border-slate-300 bg-white text-slate-600 hover:border-primary/60 hover:text-primary'
+                            }`}
+                          >
+                            {t} ({n})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
+              ))}
             </div>
           )}
         </div>
@@ -1020,7 +1077,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
                   <tr key={r.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
                     <td className="py-3 px-3 font-bold text-slate-800">{r.name}</td>
                     <td className="py-3 px-3 font-extrabold text-primary whitespace-nowrap">{r.code}</td>
-                    <td className="py-3 px-3 text-slate-600">{r.subject}</td>
+                    <td className="py-3 px-3 text-slate-600">{roomSubjectsLabel(r)}</td>
                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{r.count} / {r.time_limit}</td>
                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{st.total} ({st.submitted})</td>
                     <td className="py-3 px-3">

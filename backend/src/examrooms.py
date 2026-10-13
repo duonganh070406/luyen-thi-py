@@ -5,8 +5,9 @@
   (trung ho ten nhung khac CCCD thi tach session, khong de bai thi)
   (du lieu JSON cu da duoc migrate vao DB luc khoi dong)
 
-Room: id, code, name, subject, topics, difficulty, count, time_limit,
-      shuffle_questions, shuffle_options, status(open|closed),
+Room: id, code, name, subject (mon chinh, tuong thich cu),
+      subjects (list cac mon nguon cau hoi), topics, difficulty, count,
+      time_limit, shuffle_questions, shuffle_options, status(open|closed),
       created_by, created_at, max_violations
 Session: room_id, participant, ticket, questions(list quiz item day du,
       chi luu server), answers, violations, joins, joined_at, deadline,
@@ -147,15 +148,51 @@ def _new_code(existing: set[str]) -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
+def room_subjects(room: dict[str, Any]) -> list[str]:
+    """Danh sach mon nguon cau hoi cua phong (phong cu -> [subject])."""
+    out: list[str] = []
+    subs = room.get("subjects")
+    if isinstance(subs, str):
+        try:
+            import json as _json
+
+            subs = _json.loads(subs)
+        except Exception:
+            subs = []
+    if isinstance(subs, list):
+        for s in subs:
+            name = str(s or "").strip()
+            if name and name not in out:
+                out.append(name)
+    if not out:
+        legacy = str(room.get("subject") or "").strip()
+        if legacy:
+            out.append(legacy)
+    return out
+
+
 def create_room(payload: dict[str, Any], created_by: str) -> dict[str, Any]:
     with store.session() as conn:
         existing = store.room_codes(conn)
     rng = random.Random()
+    # Ho tro tao phong tu NHIEU bo cau hoi: uu tien `subjects`, roi ve `subject` cu.
+    raw_subjects = payload.get("subjects")
+    if not isinstance(raw_subjects, list):
+        raw_subjects = []
+    subjects: list[str] = []
+    for s in raw_subjects:
+        name = str(s or "").strip()
+        if name and name not in subjects:
+            subjects.append(name)
+    legacy_subject = (payload.get("subject") or "").strip()
+    if legacy_subject and legacy_subject not in subjects:
+        subjects.insert(0, legacy_subject)
     room = {
         "id": f"room_{int(time.time())}_{rng.randint(1000, 9999)}",
         "code": payload.get("code") or _new_code(existing),
         "name": (payload.get("name") or "Phong thi").strip() or "Phong thi",
-        "subject": (payload.get("subject") or "").strip(),
+        "subject": subjects[0] if subjects else "",
+        "subjects": subjects,
         "unit": (payload.get("unit") or "").strip(),
         "topics": payload.get("topics") or [],
         "difficulty": payload.get("difficulty") or "Hon hop",
@@ -201,7 +238,25 @@ def grade_session(questions: list[dict[str, Any]], answers: dict[str, Any]) -> t
 
 
 def build_questions_for_participant(room: dict[str, Any]) -> list[dict[str, Any]]:
-    pool = unified_questions(room.get("subject", ""))
+    # Gop ngan hang de tu TAT CA mon nguon (phong 1 mon cu van chay nhu cu).
+    pool: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for subj in room_subjects(room):
+        for q in unified_questions(subj):
+            if not isinstance(q, dict):
+                continue
+            item = dict(q)
+            item["subject"] = subj  # danh dau nguon de loc/hien thi
+            qid = str(item.get("id"))
+            if qid in seen_ids:
+                # 2 mon khac nhau nhung trung id (vd cung ten file md):
+                # prefix ten mon de khong de bai cham nham.
+                item["id"] = f"{subj}::{qid}"
+                qid = str(item.get("id"))
+                if qid in seen_ids:
+                    continue
+            seen_ids.add(qid)
+            pool.append(item)
     count = max(1, min(int(room.get("count") or 10), 200))
     picked = pick_with_mix(
         pool,
@@ -230,6 +285,7 @@ def public_question(q: dict[str, Any]) -> dict[str, Any]:
         "explanation": "",
         "difficulty": q.get("difficulty", ""),
         "topic": q.get("topic", ""),
+        "subject": q.get("subject", ""),
     }
 
 

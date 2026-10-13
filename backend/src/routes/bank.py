@@ -90,15 +90,16 @@ def delete_bank(
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ):
     """Xoa CA BO DE (cau hoi + dong subject). Chan neu dang co ky thi dung bo nay."""
+    from src.examrooms import room_subjects
+
     name = _sanitize_subject_name(subject)
     with store.session() as conn:
-        used = conn.execute(
-            "SELECT COUNT(*) AS n FROM rooms WHERE subject=?", (name,)
-        ).fetchone()
-        if used and int(used["n"]) > 0:
+        rooms = store.rooms_all(conn)
+        used = sum(1 for r in rooms if name in room_subjects(r))
+        if used > 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"Không thể xóa: đang có {int(used['n'])} kỳ kiểm tra dùng bộ đề này. Hãy kết thúc/xóa kỳ thi trước.",
+                detail=f"Không thể xóa: đang có {used} kỳ kiểm tra dùng bộ đề này. Hãy kết thúc/xóa kỳ thi trước.",
             )
         if not store.subject_delete(conn, name):
             raise HTTPException(status_code=404, detail="Không tìm thấy bộ đề.")

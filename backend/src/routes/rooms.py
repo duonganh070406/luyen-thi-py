@@ -21,6 +21,7 @@ router = APIRouter()
 class RoomCreateBody(BaseModel):
     name: str = "Phong thi"
     subject: str = ""
+    subjects: list[str] = []
     unit: str = ""
     topics: list[str] = []
     difficulty: str = "Hon hop"
@@ -35,11 +36,23 @@ class RoomCreateBody(BaseModel):
 
 @router.post("/api/rooms", status_code=201)
 def create_room(body: RoomCreateBody, user: auth_store.AuthUser = Depends(auth_store.require_admin)):
-    if not body.subject.strip():
-        raise HTTPException(status_code=400, detail="Cần chọn môn (subject) cho phòng thi.")
+    # Phong thi co the boc de tu NHIEU bo cau hoi: uu tien `subjects`, roi ve `subject` cu.
+    picked: list[str] = []
+    for s in body.subjects or []:
+        name = (s or "").strip()
+        if name and name not in picked:
+            picked.append(name)
+    legacy = (body.subject or "").strip()
+    if legacy and legacy not in picked:
+        picked.insert(0, legacy)
+    if not picked:
+        raise HTTPException(status_code=400, detail="Cần chọn ít nhất 1 bộ câu hỏi cho phòng thi.")
     # Mon phai ton tai: tranh phong ma (join tra 0 cau, nop 0/0).
-    require_subject(body.subject)
-    room = store.create_room(body.model_dump(mode="json"), created_by=user.username)
+    canonical = [require_subject(s) for s in picked]
+    payload = body.model_dump(mode="json")
+    payload["subjects"] = canonical
+    payload["subject"] = canonical[0]
+    room = store.create_room(payload, created_by=user.username)
     return {"ok": True, "room": room}
 
 
@@ -83,7 +96,8 @@ def join(body: JoinBody):
     show = room.get("show_answers", True)
     return {
         "ok": True,
-        "room": {k: room[k] for k in ("id", "code", "name", "subject", "time_limit", "max_violations", "status")},
+        "room": {k: room[k] for k in ("id", "code", "name", "subject", "time_limit", "max_violations", "status")}
+        | {"subjects": store.room_subjects(room)},
         "ticket": sess.get("ticket", ""),
         "deadline": sess.get("deadline", 0),
         "questions": [store.public_question(q) for q in sess.get("questions") or []],
@@ -317,7 +331,7 @@ def export_report(room_id: str, _: auth_store.AuthUser = Depends(auth_store.requ
     ranking = store.leaderboard(room_id)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["Phong thi", room.get("name", ""), "Ma", room.get("code", ""), "Mon", room.get("subject", "")])
+    w.writerow(["Phong thi", room.get("name", ""), "Ma", room.get("code", ""), "Mon", ", ".join(store.room_subjects(room))])
     w.writerow(["Hang", "Thi sinh", "Don vi", "So CCCD", "Diem", "Tong", "Da lam", "Vi pham tab", "So lan vao", "Da nop"])
     for i, r in enumerate(ranking, start=1):
         w.writerow([i, r["participant"], r.get("unit", ""), r.get("id_number", ""), r["score"], r["total"], r["answered"], r["violations"], r.get("joins", 1), "Co" if r["submitted"] else "Chua"])
