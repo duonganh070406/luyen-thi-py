@@ -18,6 +18,10 @@ export default function RegisterPage() {
       setError('Mật khẩu nhập lại không khớp.');
       return;
     }
+    if (password.length < 3) {
+      setError('Mật khẩu tối thiểu 3 ký tự.');
+      return;
+    }
     setLoading(true);
     try {
       await register(username.trim(), password);
@@ -62,26 +66,26 @@ export default function RegisterPage() {
               <label className="block text-[11px] font-medium text-slate-200 mb-1.5 ml-1">
                 Mật khẩu (tối thiểu 3 ký tự)
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
-                autoComplete="new-password"
-              />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                  className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
+                  autoComplete="new-password"
+                />
             </div>
 
             <div>
               <label className="block text-[11px] font-medium text-slate-200 mb-1.5 ml-1">
                 Nhập lại mật khẩu
               </label>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
-                autoComplete="new-password"
-              />
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => { setConfirm(e.target.value); setError(''); }}
+                  className="w-full h-10 rounded-full bg-white px-4 text-xs text-slate-900 font-medium outline-none shadow-inner border border-slate-300 focus:ring-2 focus:ring-gold"
+                  autoComplete="new-password"
+                />
             </div>
 
             {error && (

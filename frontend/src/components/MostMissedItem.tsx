@@ -36,7 +36,7 @@ export default function MostMissedItem({ item, i }: MostMissedItemProps) {
               Sai {item.count} lần
             </span>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {q.type === 'single' ? 'Một đáp án' : q.type === 'multiple' ? 'Nhiều đáp án' : 'Tự luận'}
+              {q.type === 'single' ? 'Một đáp án' : q.type === 'multi' || q.type === 'multiple' ? 'Nhiều đáp án' : q.type === 'short_answer' ? 'Điền ngắn' : q.type === 'matching' ? 'Nối đôi' : 'Tự luận'}
             </span>
           </div>
           <div className={`absolute top-1/2 right-0 -translate-y-1/2 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>

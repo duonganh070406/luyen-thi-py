@@ -201,18 +201,27 @@ export default function ExamRoomPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Đơn vị công tác</label>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                <option value="">vd: Đội 1 - Phòng 2</option>
-                {(Array.isArray(units) ? units : []).map((u: any, idx: number) => {
-                  const label = typeof u === 'string' ? u : (u?.name ?? '');
-                  const key = typeof u === 'string' ? u : (u?.id ?? u?.name ?? idx);
-                  return <option key={String(key)} value={label}>{label}</option>;
-                })}
-              </select>
+              {(Array.isArray(units) ? units : []).length > 0 ? (
+                <select
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">vd: Đội 1 - Phòng 2</option>
+                  {(Array.isArray(units) ? units : []).map((u: any, idx: number) => {
+                    const label = typeof u === 'string' ? u : (u?.name ?? '');
+                    const key = typeof u === 'string' ? u : (u?.id ?? u?.name ?? idx);
+                    return <option key={String(key)} value={label}>{label}</option>;
+                  })}
+                </select>
+              ) : (
+                <input
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  placeholder="Nhập đơn vị công tác (vd: Đội 1 - Phòng 2)"
+                  className="w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Số căn cước công dân</label>

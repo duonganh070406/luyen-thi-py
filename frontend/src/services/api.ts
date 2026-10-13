@@ -7,6 +7,28 @@ function url(path: string): string {
   return `${API_BASE}${p}`;
 }
 
+function friendlyError(res: Response, text: string): Error {
+  // Backend tra loi JSON {detail: "..."} bang tieng Viet -> hien thang,
+  // thay vi "401 Unauthorized: {\"detail\":...}" tho nhu truoc.
+  if (text) {
+    try {
+      const j = JSON.parse(text) as { detail?: unknown };
+      const d = j?.detail;
+      if (typeof d === 'string' && d.trim()) return new Error(d);
+      if (Array.isArray(d)) {
+        const parts = d.map((x: unknown) =>
+          typeof x === 'object' && x !== null && 'msg' in x ? String((x as { msg: unknown }).msg) : JSON.stringify(x));
+        if (parts.length > 0) return new Error(parts.join('; '));
+      }
+    } catch { /* khong phai JSON */ }
+  }
+  if (res.status === 401) return new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+  if (res.status === 403) return new Error('Bạn không có quyền thực hiện thao tác này.');
+  if (res.status === 404) return new Error('Không tìm thấy dữ liệu yêu cầu.');
+  if (res.status >= 500) return new Error('Máy chủ đang bận. Vui lòng thử lại sau.');
+  return new Error(`${res.status} ${res.statusText}${text ? `: ${text.slice(0, 200)}` : ''}`);
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? 'GET';
   const isBody = method !== 'GET' && method !== 'HEAD';
@@ -31,7 +53,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
+    throw friendlyError(res, text);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -163,6 +185,16 @@ export async function deleteHistoryAttempt(
   return fetchJson(`/api/subjects/${s}/history/${a}`, {
     method: 'DELETE',
   });
+}
+
+
+export async function getHistoryAttempt(
+  subjectFolderName: string,
+  attemptId: string
+): Promise<any> {
+  const s = encodeURIComponent(subjectFolderName);
+  const a = encodeURIComponent(attemptId);
+  return fetchJson(`/api/subjects/${s}/history/${a}`);
 }
 
 
@@ -353,7 +385,7 @@ export async function previewImportFile(file: File): Promise<ImportPreview> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
+    throw friendlyError(res, text);
   }
   return res.json();
 }
@@ -394,6 +426,18 @@ export async function suggestDifficulty(subject: string, questionId?: string, qu
   const s = encodeURIComponent(subject);
   const q = `?question_id=${encodeURIComponent(questionId ?? '')}&question=${encodeURIComponent(question ?? '')}`;
   return fetchJson(`/api/subjects/${s}/ml-difficulty${q}`);
+}
+
+export async function requestAiFeedback(
+  subjectFolderName: string,
+  body: { question: string; draft: string; reference?: string }
+): Promise<{ feedback: string | null }> {
+  // Nhan xet AI chay phia server — API key khong bao gio xuong trinh duyet.
+  const s = encodeURIComponent(subjectFolderName);
+  return fetchJson<{ feedback: string | null }>(`/api/subjects/${s}/ai-feedback`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // ---------- Bao loi ----------

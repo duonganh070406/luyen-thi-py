@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Question, Attempt, AppState, QuizParams } from '../types.ts';
-import { appendHistory, getExamData, getComprehensiveQuiz } from '../services/api.ts';
+import { appendHistory, getExamData, getComprehensiveQuiz, getHistoryAttempt } from '../services/api.ts';
 import { attemptFromHistory, questionFromApi } from '../mapBackend.ts';
 
 interface UseQuizSessionParams {
@@ -207,7 +207,7 @@ export function useQuizSession({
     }
   }, [selectedSubjectId, location.pathname, searchParams]);
 
-  // 3. Tải attempt lịch sử từ URL
+  // 3. Tải attempt lịch sử từ URL (bo nho -> API le -> moi bo cuoc)
   useEffect(() => {
     const isHistoryPath = location.pathname.includes('/history/');
     if (!selectedSubjectId || !isHistoryPath || !selectedAttemptId || attempts.length === 0) return;
@@ -229,8 +229,22 @@ export function useQuizSession({
       if (justSubmittedAttemptId === selectedAttemptId) {
         return;
       }
-      console.warn("Attempt not found");
-      navigate(`/subject/${selectedSubjectId}`);
+      // F5 khi danh sach bo nho thieu: thu tai truc tiep 1 attempt tu server.
+      getHistoryAttempt(selectedSubjectId, selectedAttemptId)
+        .then((raw) => {
+          const one = attemptFromHistory(selectedSubjectId, raw as Record<string, unknown>);
+          const qs = (one.snapshot || []).map(s => questionFromApi(selectedSubjectId, s));
+          setActiveQuizQuestions(qs);
+          setQuizAnswers(one.answers);
+          setEssayFeedbacks(one.feedbacks || {});
+          setShowResult(true);
+          setActiveExamName(one.examName || 'Đề ngẫu nhiên');
+          setActiveAttempt(one);
+        })
+        .catch(() => {
+          console.warn('Attempt not found');
+          navigate(`/subject/${encodeURIComponent(selectedSubjectId)}`);
+        });
     }
   }, [selectedSubjectId, selectedAttemptId, attempts, location.pathname, justSubmittedAttemptId]);
 

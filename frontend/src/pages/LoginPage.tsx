@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import dongSonBg from '../assets/dong_son_bg.jpg';
 import { login } from '../services/api.ts';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation() as { state?: { needAdmin?: boolean } };
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -39,9 +40,15 @@ export default function LoginPage() {
     >
       <div className="relative w-full max-w-[340px] z-10">
         <div className="rounded-2xl border border-red-900/60 bg-[#350202]/92 backdrop-blur-md px-7 py-8 shadow-2xl text-white">
-          <h1 className="text-xl font-bold text-white mb-6 text-center tracking-wide">
-            Đăng nhập
-          </h1>
+            <h1 className="text-xl font-bold text-white mb-6 text-center tracking-wide">
+              Đăng nhập
+            </h1>
+
+            {location.state?.needAdmin && (
+              <p className="text-[11px] text-gold bg-gold/10 border border-gold/30 rounded-lg px-3 py-1.5 text-center mb-4">
+                Khu vực quản trị — vui lòng đăng nhập tài khoản admin.
+              </p>
+            )}
 
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div>

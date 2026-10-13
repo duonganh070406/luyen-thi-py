@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question, AppState } from '../types.ts';
-import { appendHistory, getAIConfig } from '../services/api.ts';
+import { appendHistory, requestAiFeedback } from '../services/api.ts';
 import { attemptFromHistory } from '../mapBackend.ts';
 import MarkdownRenderer from './MarkdownRenderer.tsx';
 
@@ -142,7 +142,7 @@ export default function FlashcardView({
     handleNextCard();
   };
 
-  // Call Gemini API directly for essay feedback
+  // Nhan xet AI chay phia server (API key khong roi may chu)
   const handleGetAIFeedback = async (q: Question) => {
     const draft = draftAnswers[q.id] || '';
     if (!draft.trim()) {
@@ -152,63 +152,15 @@ export default function FlashcardView({
 
     setAiFeedbackLoading(prev => ({ ...prev, [q.id]: true }));
     try {
-      const aiConfig = await getAIConfig();
-      if (!aiConfig.enableAIGrading) {
-        setAiFeedbacks(prev => ({ ...prev, [q.id]: "Tính năng AI chấm điểm đang bị tắt trong cài đặt." }));
-        return;
-      }
-
-      const activeId = aiConfig.activeProfileId;
-      let activeProfile = aiConfig.profiles?.find(p => p.id === activeId);
-      if (!activeProfile && aiConfig.profiles?.length > 0) {
-        activeProfile = aiConfig.profiles[0];
-      }
-
-      if (!activeProfile || !activeProfile.aiApiKey) {
-        setAiFeedbacks(prev => ({ ...prev, [q.id]: "Lỗi: Chưa cấu hình API Key cho AI chấm điểm." }));
-        return;
-      }
-
-      const apiKey = activeProfile.aiApiKey;
-      const baseUrl = (activeProfile.aiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/').replace(/\/$/, '') + '/chat/completions';
-      const model = activeProfile.aiModel || 'gemini-2.5-flash';
-
-      const prompt = `
-Bạn là một giáo viên đang chấm bài tự luận. 
-Câu hỏi: "${q.text}"
-Câu trả lời của học sinh: "${draft}"
-${q.referenceAnswer ? `Câu trả lời tham khảo: "${q.referenceAnswer}"` : ""}
-
-Hãy đưa ra phản hồi ngắn gọn bằng tiếng Việt:
-1. Đánh giá câu trả lời có đúng trọng tâm không.
-2. Chỉ ra các ý còn thiếu hoặc sai.
-3. Gợi ý cách cải thiện.
-`;
-
-      const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7
-        })
+      const res = await requestAiFeedback(subjectId, {
+        question: q.text,
+        draft,
+        reference: q.referenceAnswer || '',
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || response.statusText);
-      }
-
-      const data = await response.json();
-      const text = data.choices?.[0]?.message?.content?.trim() || "Không thể lấy nhận xét từ AI.";
-      setAiFeedbacks(prev => ({ ...prev, [q.id]: text }));
+      setAiFeedbacks(prev => ({ ...prev, [q.id]: res.feedback || "Không thể lấy nhận xét từ AI." }));
     } catch (e) {
       console.error(e);
-      setAiFeedbacks(prev => ({ ...prev, [q.id]: `Lỗi khi gọi AI chấm điểm: ${e instanceof Error ? e.message : e}` }));
+      setAiFeedbacks(prev => ({ ...prev, [q.id]: e instanceof Error ? e.message : String(e) }));
     } finally {
       setAiFeedbackLoading(prev => ({ ...prev, [q.id]: false }));
     }
@@ -358,6 +310,7 @@ Hãy đưa ra phản hồi ngắn gọn bằng tiếng Việt:
 
         <button
           onClick={onClose}
+          aria-label="Đóng màn học flashcard"
           className="w-9 sm:w-10 h-9 sm:h-10 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
         >
           <X size={20} />

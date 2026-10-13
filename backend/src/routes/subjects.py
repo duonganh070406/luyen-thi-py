@@ -43,6 +43,33 @@ from src.grading_strategies import (
 
 router = APIRouter()
 
+# Tien to cua thong bao loi AI (khong phai nhan xet that) -> tu luan phai
+# cho cho cham tay, tuyet doi khong duoc +diem.
+_AI_ERROR_PREFIXES = ("Lỗi:", "Lỗi ", "Không thể")
+
+
+def _is_ai_error(feedback: Any) -> bool:
+    if not isinstance(feedback, str) or not feedback.strip():
+        return True
+    return feedback.strip().startswith(_AI_ERROR_PREFIXES)
+
+
+def _resolve_active_profile(
+    ai_config: dict[str, Any],
+) -> tuple[Any | None, str | None, str | None, str | None]:
+    """Tim profile AI dang dung -> (profile, api_key, base_url, model)."""
+    active = None
+    active_id = ai_config.get("activeProfileId")
+    for profile in ai_config.get("profiles", []) or []:
+        if isinstance(profile, dict) and profile.get("id") == active_id:
+            active = profile
+            break
+    if not active and ai_config.get("profiles"):
+        active = ai_config["profiles"][0]
+    if not isinstance(active, dict):
+        return None, None, None, None
+    return active, active.get("aiApiKey"), active.get("aiBaseUrl"), active.get("aiModel")
+
 # Đăng ký các bộ chấm điểm
 GradingRegistry.register(SingleChoiceGrading())
 GradingRegistry.register(MultiChoiceGrading())
@@ -116,10 +143,12 @@ def update_subject_config(
 
 @router.get("/api/config/ai", response_model=AIConfigModel)
 def get_ai_config_endpoint(
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
+    user: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> AIConfigModel:
-    """Lấy cấu hình AI chấm điểm hiện tại."""
+    """Hoc vien dang nhap chi biet co bat AI khong; key chi admin thay."""
     config_dict = read_ai_config()
+    if (user.role or "") != "admin":
+        config_dict = {**config_dict, "activeProfileId": None, "profiles": []}
     return AIConfigModel(**config_dict)
 
 
@@ -300,6 +329,21 @@ def get_history(
         return store.history_list(conn, subject)
 
 
+@router.get("/api/subjects/{subject}/history/{attempt_id}")
+def get_history_attempt(
+    subject: str,
+    attempt_id: str,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
+    """Lay chi tiet mot lan lam bai (phuc vu F5 trang ket qua)."""
+    resolve_subject_dir(subject)
+    with store.session() as conn:
+        for att in store.history_list(conn, subject):
+            if str(att.get("attemptId")) == attempt_id:
+                return att
+    raise HTTPException(status_code=404, detail="Không tìm thấy bài làm.")
+
+
 @router.get("/api/subjects/{subject}/notes")
 def list_subject_notes(
     subject: str,
@@ -354,20 +398,7 @@ async def append_history(
     enable_ai = body.enableAIGrading and ai_config.get("enableAIGrading", True)
 
     # Resolve active profile configuration
-    active_profile = None
-    active_id = ai_config.get("activeProfileId")
-    for profile in ai_config.get("profiles", []):
-        if profile.get("id") == active_id:
-            active_profile = profile
-            break
-
-    # If no active profile match, fallback to first profile in list
-    if not active_profile and ai_config.get("profiles"):
-        active_profile = ai_config["profiles"][0]
-
-    api_key = active_profile.get("aiApiKey") if active_profile else None
-    base_url = active_profile.get("aiBaseUrl") if active_profile else None
-    model = active_profile.get("aiModel") if active_profile else None
+    _, api_key, base_url, model = _resolve_active_profile(ai_config)
 
     correct = 0
     wrong = 0
@@ -425,7 +456,9 @@ async def append_history(
                 feedback = res.feedback
                 
                 if q_type == "essay":
-                    if not feedback:
+                    # AI hong (het key, timeout, loi mang) -> feedback la chuoi
+                    # bao loi: CHO cham tay, tuyet doi khong +diem.
+                    if _is_ai_error(feedback):
                         pending_essay += 1
                     else:
                         correct += 1
@@ -512,6 +545,42 @@ def delete_history_attempt(
     if not found:
         raise HTTPException(status_code=404, detail="Attempt not found")
     return {"ok": True, "length": total}
+
+
+class AiFeedbackBody(BaseModel):
+    question: str = ""
+    draft: str = ""
+    reference: str = ""
+
+
+@router.post("/api/subjects/{subject}/ai-feedback")
+async def ai_feedback(
+    subject: str,
+    body: AiFeedbackBody,
+    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
+) -> dict[str, Any]:
+    """Nhan xet bai tu luan phia server — API key AI khong bao gio roi may chu."""
+    resolve_subject_dir(subject)
+    if not body.draft.strip():
+        raise HTTPException(status_code=400, detail="Cần bài làm nháp để nhận xét.")
+    ai_config = read_ai_config()
+    if not ai_config.get("enableAIGrading", True):
+        raise HTTPException(status_code=400, detail="Tính năng AI chấm điểm đang bị tắt trong cài đặt.")
+    _, api_key, base_url, model = _resolve_active_profile(ai_config)
+    strategy = GradingRegistry.get("essay")
+    if strategy is None:
+        raise HTTPException(status_code=500, detail="Chưa có bộ chấm tự luận.")
+    res = await strategy.grade(
+        {"text": body.question, "referenceAnswer": body.reference, "explanation": body.reference},
+        body.draft,
+        enable_ai=True,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+    )
+    if _is_ai_error(res.feedback):
+        raise HTTPException(status_code=400, detail=res.feedback or "Không thể lấy nhận xét từ AI.")
+    return {"feedback": res.feedback}
 
 
 @router.post("/api/subjects/{subject}/comprehensive-quiz")

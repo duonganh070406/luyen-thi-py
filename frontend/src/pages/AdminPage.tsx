@@ -42,7 +42,7 @@ export default function AdminPage() {
   useEffect(() => {
     const u = currentUser();
     if (!u || u.role !== 'admin') {
-      navigate('/dang-nhap');
+      navigate('/dang-nhap', { state: { needAdmin: true } });
       return;
     }
     reloadSubjects();

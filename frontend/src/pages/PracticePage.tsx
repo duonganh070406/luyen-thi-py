@@ -16,7 +16,100 @@ const DIFFS = [
   { v: 'Kho', label: 'Khó', hint: 'Trộn: 20% Dễ · 30% TB · 50% Khó' },
 ];
 
-interface ResultRow { q: Question; user: number; ok: boolean; }
+interface ResultRow { q: Question; user: any; ok: boolean | null; fb?: string; }
+
+const letterOf = (i: number) => (i >= 0 && i < 26 ? String.fromCharCode(65 + i) : `${i + 1}`);
+
+function sameSet(a: unknown, b: unknown): boolean {
+  const sa = Array.isArray(a) ? [...a] : [];
+  const sb = Array.isArray(b) ? [...b] : [];
+  if (sa.length !== sb.length) return false;
+  const na = sa.map(Number).sort((x, y) => x - y);
+  const nb = sb.map(Number).sort((x, y) => x - y);
+  return na.every((v, i) => v === nb[i]);
+}
+
+function gradeLocal(q: Question, u: any): boolean | null {
+  if (q.type === 'single') return (q.correctAnswers || [0])[0] === u;
+  if (q.type === 'multi' || q.type === 'matching') return sameSet(q.correctAnswers || [], u);
+  if (q.type === 'short_answer') {
+    return String(u ?? '').trim().toLowerCase() === String(q.referenceAnswer ?? '').trim().toLowerCase();
+  }
+  return null; // essay: cho AI cham, khong tu +diem
+}
+
+function isAnswered(q: Question, u: any): boolean {
+  if (u === undefined || u === null) return false;
+  if (q.type === 'single') return u !== -1;
+  if (q.type === 'multi' || q.type === 'matching') return Array.isArray(u) && u.length > 0;
+  return String(u).trim() !== '';
+}
+
+function ReviewBody({ r }: { r: ResultRow }) {
+  const q = r.q;
+  if (q.type === 'single' || q.type === 'multi') {
+    const correct = new Set(q.correctAnswers || []);
+    const picked = new Set(Array.isArray(r.user) ? r.user : (typeof r.user === 'number' ? [r.user] : []));
+    return (
+      <div className="text-xs mt-2 flex flex-col gap-1">
+        {(q.options || []).map((opt, oi) => {
+          const isC = correct.has(oi);
+          const isU = picked.has(oi);
+          return (
+            <div key={oi} className={`px-3 py-2 rounded-lg ${isC ? 'bg-green-50 text-green-700 font-bold' : isU ? 'bg-red-50 text-red-600' : 'text-slate-500'}`}>
+              <span className="font-bold mr-1">{letterOf(oi)}.</span>
+              <MarkdownRenderer content={opt} />
+              <span className="ml-1">{isC ? '← đáp án đúng' : isU ? '← bạn chọn' : ''}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  if (q.type === 'matching') {
+    const left = q.leftOptions || [];
+    const right = q.rightOptions || q.options || [];
+    const correct: number[] = q.correctAnswers || [];
+    const user: number[] = Array.isArray(r.user) ? r.user : [];
+    return (
+      <div className="text-xs mt-2 flex flex-col gap-1">
+        {left.map((l, i) => {
+          const u = user[i];
+          const c = correct[i];
+          const okRow = typeof u === 'number' && u === c;
+          return (
+            <div key={i} className={`px-3 py-2 rounded-lg ${okRow ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+              <MarkdownRenderer content={l} />
+              <span> → {typeof u === 'number' && right[u] ? <MarkdownRenderer content={right[u]} /> : '— chưa nối —'}</span>
+              {!okRow && typeof c === 'number' && right[c] ? (
+                <span className="font-bold"> (đúng: <MarkdownRenderer content={right[c]} />)</span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className="text-xs mt-2 flex flex-col gap-2">
+      <div className="px-3 py-2 rounded-lg bg-slate-50 text-slate-700">
+        Bài làm của bạn: <b>{r.user === undefined || r.user === null || String(r.user).trim() === '' ? '— chưa làm —' : String(r.user)}</b>
+      </div>
+      {q.referenceAnswer ? (
+        <div className="px-3 py-2 rounded-lg bg-green-50 text-green-700">
+          <span className="font-bold">Đáp án tham khảo: </span>
+          <MarkdownRenderer content={q.referenceAnswer} />
+        </div>
+      ) : null}
+      {r.fb ? (
+        <div className="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-900">
+          <span className="font-bold">Nhận xét AI: </span>
+          <MarkdownRenderer content={r.fb} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function PracticePage() {
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
@@ -30,7 +123,8 @@ export default function PracticePage() {
   const [shuffleO, setShuffleO] = useState(true);
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const [result, setResult] = useState<ResultRow[] | null>(null);
   const [competency, setCompetency] = useState<any>(null);
   const [recentErrors, setRecentErrors] = useState<any[]>([]);
@@ -101,22 +195,25 @@ export default function PracticePage() {
 
   const submit = async () => {
     if (questions.length === 0) return;
-    const rows: ResultRow[] = questions.map((q) => {
-      const u = answers[q.id] ?? -1;
-      const ok = (q.correctAnswers || [0])[0] === u;
-      return { q, user: u, ok };
-    });
+    const uncount = questions.filter((q) => !isAnswered(q, answers[q.id])).length;
+    if (uncount > 0 && !confirmSkip) {
+      setConfirmSkip(true);
+      setNotice(`Còn ${uncount} câu chưa trả lời. Bấm "Nộp bài" lần nữa để nộp luôn.`);
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    const rows: ResultRow[] = questions.map((q) => ({ q, user: answers[q.id], ok: gradeLocal(q, answers[q.id]) }));
     setResult(rows);
-    // Luu lich su de co bieu do nang luc + cau sai gan day (khong can dang nhap)
+    // Luu lich su de co bieu do nang luc + cau sai gan day
     try {
       const attemptId = `att_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       await appendHistory(subject, {
         attemptId,
-        examName: `Luyện: ${picked.length ? picked.join(',') : 'Hỗn hợp'} - ${difficulty}`,
+        examName: `Luyện: ${picked.length ? picked.join(',') : 'Hỗn hợp'} - ${DIFF_LABEL[difficulty] ?? difficulty}`,
         questions: questions.map((q) => ({
-          id: q.id, type: 'single', text: q.text, options: q.options,
-          correctAnswers: q.correctAnswers, explanation: q.explanation,
-          topic: q.topic, difficulty: q.difficulty,
+          id: q.id, type: q.type, text: q.text, options: q.options,
+          correctAnswers: q.correctAnswers, referenceAnswer: q.referenceAnswer,
+          explanation: q.explanation, topic: q.topic, difficulty: q.difficulty,
         })),
         answers,
         enableAIGrading: false,
@@ -136,9 +233,9 @@ export default function PracticePage() {
     }
     const qs = snaps.map((s) => questionFromApi(subject, s as Record<string, unknown>));
     const rows: ResultRow[] = snaps.map((s: any, i: number) => {
-      const u = typeof s.userAnswer === 'number' ? s.userAnswer : -1;
-      const ok = typeof s.isCorrect === 'boolean' ? s.isCorrect : ((qs[i].correctAnswers || [0])[0] === u);
-      return { q: qs[i], user: u, ok };
+      const u = s.userAnswer;
+      const ok = typeof s.isCorrect === 'boolean' ? s.isCorrect : gradeLocal(qs[i], u);
+      return { q: qs[i], user: u, ok, fb: typeof s.feedback === 'string' ? s.feedback : undefined };
     });
     setQuestions(qs);
     setAnswers({});
@@ -159,7 +256,7 @@ export default function PracticePage() {
     }
   };
 
-  const score = useMemo(() => (result ? result.filter((r) => r.ok).length : 0), [result]);
+  const score = useMemo(() => (result ? result.filter((r) => r.ok === true).length : 0), [result]);
 
   const shownHistory = useMemo(() => {
     const q = histQuery.trim().toLowerCase();
@@ -194,7 +291,7 @@ export default function PracticePage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="font-bold text-slate-900 text-lg">Đang ôn tập: {subject} · {questions.length} câu</h1>
-          <button type="button" onClick={() => { setQuestions([]); setAnswers({}); }} className="text-xs font-bold text-slate-500 hover:text-red-600 cursor-pointer">Thoát</button>
+          <button type="button" onClick={() => { setQuestions([]); setAnswers({}); setConfirmSkip(false); }} className="text-xs font-bold text-slate-500 hover:text-red-600 cursor-pointer">Thoát</button>
         </div>
         <div className="flex flex-col gap-4">
           {questions.map((q, i) => (
@@ -212,10 +309,10 @@ export default function PracticePage() {
                     <button
                       key={oi}
                       type="button"
-                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
+                      onClick={() => { setAnswers((a) => ({ ...a, [q.id]: oi })); setConfirmSkip(false); }}
                       className={`text-left px-4 py-3 rounded-xl border text-sm transition-colors cursor-pointer ${active ? 'border-primary bg-primary/5 font-bold text-primary' : 'border-slate-200 hover:border-primary'}`}
                     >
-                      <b className="mr-2">{'ABCDE'[oi]}.</b><MarkdownRenderer content={opt} />
+                      <b className="mr-2">{letterOf(oi)}.</b><MarkdownRenderer content={opt} />
                     </button>
                   );
                 })}
@@ -247,29 +344,46 @@ export default function PracticePage() {
           </button>
         </div>
         {notice && <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">{notice}</p>}
+        {competency && (Object.keys(competency.byTopic || {}).length > 0 || Object.keys(competency.byDifficulty || {}).length > 0) && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-4 shadow-sm">
+            <CompetencyChart title="Năng lực theo chủ đề" data={competency.byTopic || {}} emptyText="Chưa có dữ liệu." />
+            <div className="mt-5">
+              <CompetencyChart title="Năng lực theo độ khó" data={competency.byDifficulty || {}} emptyText="Chưa có dữ liệu." />
+            </div>
+          </div>
+        )}
+        {recentErrors.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 mb-4 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 mb-3">Câu hay sai gần đây ({recentErrors.length})</h3>
+            <div className="flex flex-col gap-2">
+              {recentErrors.slice(0, 5).map((s: any, i: number) => (
+                <div key={i} className="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+                  <MarkdownRenderer content={s.question || s.text || ''} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-3">
           {result.map((r, i) => (
             <div key={r.q.id} className={`rounded-2xl border p-5 bg-white shadow-sm ${r.ok ? 'border-green-200' : 'border-red-200'}`}>
               <div className="flex items-center gap-2 text-xs mb-2">
                 <span className="font-bold text-slate-500">Câu {i + 1}</span>
-                {r.ok
-                  ? <span className="flex items-center gap-1 text-green-600 font-bold"><CheckCircle2 size={14} /> Đúng</span>
-                  : <span className="flex items-center gap-1 text-red-500 font-bold"><XCircle size={14} /> Sai</span>}
+                {r.ok === null
+                  ? <span className="flex items-center gap-1 text-amber-600 font-bold"><CheckCircle2 size={14} /> Chờ chấm</span>
+                  : r.ok
+                    ? <span className="flex items-center gap-1 text-green-600 font-bold"><CheckCircle2 size={14} /> Đúng</span>
+                    : <span className="flex items-center gap-1 text-red-500 font-bold"><XCircle size={14} /> Sai</span>}
                 {r.q.topic && <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{r.q.topic}</span>}
               </div>
               <div className="text-sm text-slate-800 font-medium mb-3"><MarkdownRenderer content={r.q.text} /></div>
-              <div className="text-xs mt-2 flex flex-col gap-1">
-                {(r.q.options || []).map((opt, oi) => {
-                  const isC = (r.q.correctAnswers || [0])[0] === oi;
-                  const isU = r.user === oi;
-                  return (
-                    <div key={oi} className={`px-3 py-2 rounded-lg ${isC ? 'bg-green-50 text-green-700 font-bold' : isU ? 'bg-red-50 text-red-600' : 'text-slate-500'}`}>
-                      {'ABCDE'[oi]}. {opt} {isC ? '← đáp án đúng' : isU ? '← bạn chọn' : ''}
-                    </div>
-                  );
-                })}
-              </div>
-              {r.q.explanation && <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg px-3 py-2">Giải thích: {r.q.explanation}</p>}
+              <ReviewBody r={r} />
+              {r.q.explanation && (
+                <div className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg px-3 py-2">
+                  <span className="font-bold">Giải thích: </span>
+                  <MarkdownRenderer content={r.q.explanation} />
+                </div>
+              )}
               <div className="mt-3">
                 {reportFor === r.q.id ? (
                   <div className="flex gap-2">
@@ -351,8 +465,22 @@ export default function PracticePage() {
           </div>
         </div>
 
+        {/* Độ khó */}
+        <div className="mb-6">
+          <label className="block text-xs font-semibold text-slate-700 mb-2">Độ khó</label>
+          <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white cursor-pointer"
+          >
+            {DIFFS.map((d) => (
+              <option key={d.v} value={d.v} title={d.hint}>{d.label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Số câu + Trộn câu hỏi + Đảo đáp án */}
-        <div className="flex flex-wrap items-end gap-6 mb-8">
+        <div className="flex flex-wrap items-end gap-6 mb-5">
           <div className="w-24">
             <label className="block text-xs font-semibold text-slate-700 mb-2">Số câu</label>
             <input

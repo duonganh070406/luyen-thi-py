@@ -839,7 +839,7 @@ export default function SubjectDashboard({
                         <div>
                           <h4 className="text-slate-800">{att.examName || 'Đề ngẫu nhiên'}</h4>
                           <p className="text-xs text-slate-400 font-medium mt-0.5">
-                            Lần làm bài #{att.id.slice(0, 8)} • {new Date(att.timestamp).toLocaleString('vi-VN')}
+                            Lần làm bài #{att.id.slice(-6)} • {new Date(att.timestamp).toLocaleString('vi-VN')}
                           </p>
                         </div>
                       </div>
