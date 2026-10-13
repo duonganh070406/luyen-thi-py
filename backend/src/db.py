@@ -5,8 +5,11 @@
 - File .md de thi / ghi chu / anh giu nguyen tren dia (SQLite khong chua blob).
 - File JSON cu GIU LAI lam backup, khong xoa; migrate 1 lan khi DB moi tao.
 
-13 bang: users, tokens, login_attempts, rooms, room_sessions, subjects,
-bank_questions, history_attempts, reports, units, settings, ai_profiles.
+13 bang: users, login_attempts, rooms, room_sessions, subjects, subject_exams,
+subject_notes, bank_questions, history_attempts, reports, units, settings, ai_profiles.
+
+Xac thuc dung JWT stateless (src/auth.py): khong con bang tokens.
+DB cu con bang nay se duoc DROP khi khoi dong.
 
 Quy uoc: boolean luu INTEGER 0/1; object/list luu TEXT JSON (utf-8).
 """
@@ -31,13 +34,8 @@ CREATE TABLE IF NOT EXISTS users(
   role TEXT NOT NULL DEFAULT 'user',
   created_at INTEGER NOT NULL DEFAULT 0
 );
-CREATE TABLE IF NOT EXISTS tokens(
-  token TEXT PRIMARY KEY,
-  username TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL DEFAULT 'user',
-  created_at INTEGER NOT NULL DEFAULT 0,
-  expires_at INTEGER
-);
+-- JWT stateless: bang tokens cu (neu con tu ban truoc) duoc xoa han.
+DROP TABLE IF EXISTS tokens;
 CREATE TABLE IF NOT EXISTS login_attempts(
   username TEXT PRIMARY KEY,
   fails INTEGER NOT NULL DEFAULT 0,
@@ -292,61 +290,15 @@ def set_password_hash(conn: sqlite3.Connection, username: str, password_hash: st
 
 
 def user_delete(conn: sqlite3.Connection, username: str) -> bool:
-    """Xoa tai khoan + thu hoi het phien dang nhap. Tra ve True neu co xoa."""
+    """Xoa tai khoan. Tra ve True neu co xoa."""
     name = (username or "").strip()
     if not name:
         return False
     with _WRITE:
         conn.execute("BEGIN IMMEDIATE")
         try:
-            conn.execute("DELETE FROM tokens WHERE username=?", (name,))
             conn.execute("DELETE FROM login_attempts WHERE username=?", (name,))
             cur = conn.execute("DELETE FROM users WHERE username=?", (name,))
-            conn.execute("COMMIT")
-            return cur.rowcount > 0
-        except Exception:
-            try:
-                conn.execute("ROLLBACK")
-            except Exception:
-                pass
-            raise
-
-
-# ---------- tokens ----------
-
-def token_get(conn: sqlite3.Connection, token: str) -> dict[str, Any] | None:
-    r = conn.execute(
-        "SELECT token, username, role, created_at, expires_at FROM tokens WHERE token=?",
-        (token,),
-    ).fetchone()
-    return dict(r) if r else None
-
-
-def token_put(
-    conn: sqlite3.Connection, token: str, username: str, role: str,
-    created_at: int, expires_at: int | None,
-) -> None:
-    _write(
-        conn,
-        "INSERT OR REPLACE INTO tokens(token, username, role, created_at, expires_at)"
-        " VALUES(?,?,?,?,?)",
-        (token, username, role, created_at, expires_at),
-    )
-
-
-def token_set_expiry(conn: sqlite3.Connection, token: str, expires_at: int) -> None:
-    _write(conn, "UPDATE tokens SET expires_at=? WHERE token=?", (expires_at, token))
-
-
-def token_delete(conn: sqlite3.Connection, token: str) -> None:
-    _write(conn, "DELETE FROM tokens WHERE token=?", (token,))
-
-
-def tokens_delete_user(conn: sqlite3.Connection, username: str) -> bool:
-    with _WRITE:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            cur = conn.execute("DELETE FROM tokens WHERE username=?", (username,))
             conn.execute("COMMIT")
             return cur.rowcount > 0
         except Exception:
@@ -1000,25 +952,6 @@ def _migrate_from_json(conn: sqlite3.Connection) -> dict[str, int]:
                 pass
     counts["users"] = n
 
-    # 2. tokens
-    toks = _read_json_file(root / "tokens.json", {})
-    n = 0
-    if isinstance(toks, dict):
-        for tok, info in toks.items():
-            if not isinstance(info, dict):
-                continue
-            try:
-                exp = info.get("expires_at")
-                token_put(
-                    conn, str(tok), str(info.get("username", "")),
-                    str(info.get("role", "user")), int(info.get("created_at") or 0),
-                    int(exp) if isinstance(exp, int) else None,
-                )
-                n += 1
-            except Exception:
-                pass
-    counts["tokens"] = n
-
     # 3. login_attempts
     atts = _read_json_file(root / "login_attempts.json", {})
     n = 0
@@ -1361,15 +1294,6 @@ def _migrate_markdown_to_db(conn: sqlite3.Connection) -> dict[str, int]:
     return counts
 
 
-def _purge_expired_tokens(conn: sqlite3.Connection) -> None:
-    """Xoa token het han (giai phong DB)."""
-    try:
-        conn.execute("DELETE FROM tokens WHERE expires_at IS NOT NULL AND expires_at < ?", (int(time.time()),))
-        conn.commit()
-    except Exception:
-        pass
-
-
 _INITIALIZED = False
 _INIT_LOCK = threading.Lock()
 
@@ -1399,7 +1323,6 @@ def init_db() -> dict[str, int] | None:
                     print("[db] da nang PK room_sessions -> (room_id, participant, id_number)")
             except Exception as e:
                 print(f"[db] canh bao migrate PK sessions: {e}")
-            _purge_expired_tokens(conn)
             counts: dict[str, int] | None = None
             if fresh:
                 counts = _migrate_from_json(conn)

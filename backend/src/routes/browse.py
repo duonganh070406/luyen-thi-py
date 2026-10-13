@@ -33,8 +33,8 @@ def _resolve_data(path: str):
 def _is_admin_token(authorization: str | None) -> bool:
     if not authorization or not authorization.lower().startswith("bearer "):
         return False
-    info = auth_store.lookup_token(authorization[7:].strip())
-    return bool(info) and info.get("role") == "admin"
+    payload = auth_store.decode_token(authorization[7:].strip())
+    return bool(payload) and payload.get("role") == "admin"
 
 
 @router.get("/data/{path:path}")

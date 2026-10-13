@@ -58,12 +58,11 @@ backend/
 
 ---
 
-## Lưu trữ: SQLite `app.db` (14 bảng)
+## Lưu trữ: SQLite `app.db` (13 bảng)
 
 | Bảng | Nội dung |
 |------|----------|
 | `users` | username (PK), password_hash PBKDF2, role, created_at |
-| `tokens` | token (PK), username, role, expires_at (TTL 12h, dọn khi khởi động) |
 | `login_attempts` | đếm sai + khóa đăng nhập 5 phút |
 | `rooms` | phòng thi: mã code, môn, số câu, giờ, trộn/đảo, max_violations, auto_submit, show_answers |
 | `room_sessions` | phiên thí sinh, PK `(room_id, participant, id_number)` + ticket + deadline server |
@@ -95,7 +94,7 @@ Quyền: **mở** (không cần token) / **login** (Bearer của mọi tài kho�
 
 - `GET /health` (mở) → `{"ok": true}`
 - `GET /data/{path}` — ảnh public; `.md`/`.json`/nhạy cảm chỉ admin (chặn traversal)
-- Auth: `POST /api/auth/register|login` (mở) · `GET /me` · `PUT /password` · `POST /logout` (login) · `/api/auth/users...` (admin)
+- Auth (JWT stateless HS256, hết hạn 12h — production đặt `JWT_SECRET` riêng): `POST /api/auth/register|login` (mở) · `GET /me` · `PUT /password` · `POST /logout` (login) · `/api/auth/users...` (admin)
 - Môn học: `GET /api/subjects` (mở) · `PUT .../config` (admin)
 - Ôn luyện (login): `exams`, `exams/{name}`, `notes`, `history` + `history/{id}`,
   `stats`, `comprehensive-quiz`, `ai-feedback`, `bank`, `practice-quiz`,

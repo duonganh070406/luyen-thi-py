@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src import auth as auth_store
@@ -83,7 +83,8 @@ class ChangePasswordBody(BaseModel):
 
 @router.put("/api/auth/password")
 def change_password(body: ChangePasswordBody, user: auth_store.AuthUser = Depends(auth_store.get_current_user)):
-    """Doi mat khau. Doi xong thu hoi het phien cu -> phai dang nhap lai."""
+    """Doi mat khau. LUU Y JWT stateless: phien cu tren thiet bi khac van dung
+    duoc den het han (12h) — nen tu dang xuat cac thiet bi la sau khi doi."""
     u = auth_store.find_user(user.username)
     if not u or not auth_store.verify_password(body.old_password or "", u.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Mật khẩu hiện tại không đúng.")
@@ -97,10 +98,8 @@ def change_password(body: ChangePasswordBody, user: auth_store.AuthUser = Depend
 
 
 @router.post("/api/auth/logout")
-def logout(authorization: str | None = Header(default=None)):
-    """Thu hoi token phia server (client tu xoa ban sao local)."""
-    if authorization and authorization.lower().startswith("bearer "):
-        auth_store.revoke_token(authorization[7:].strip())
+def logout():
+    """JWT stateless: server khong luu phien, client tu xoa token khoi storage."""
     return {"ok": True}
 
 
@@ -137,7 +136,7 @@ def admin_reset_password(
     body: AdminResetPasswordBody,
     _: auth_store.AuthUser = Depends(auth_store.require_admin),
 ):
-    """Quan tri dat lai mat khau cho user (user phai dang nhap lai)."""
+    """Quan tri dat lai mat khau cho user."""
     try:
         auth_store.admin_reset_password(username, body.new_password or "")
     except ValueError as e:

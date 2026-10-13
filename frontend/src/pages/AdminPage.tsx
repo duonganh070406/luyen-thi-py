@@ -640,14 +640,14 @@ function UsersTab() {
       await adminResetPassword(username, resetPass);
       setResetFor(null);
       setResetPass('');
-      setMsg(`Đã đặt lại mật khẩu cho "${username}". Người dùng phải đăng nhập lại.`);
+      setMsg(`Đã đặt lại mật khẩu cho "${username}". Lưu ý: phiên đăng nhập cũ của họ vẫn dùng được đến khi hết hạn.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e));
     }
   };
 
   const doDelete = async (username: string) => {
-    if (!confirm(`Xóa tài khoản "${username}"? Người dùng này sẽ bị đăng xuất ngay.`)) return;
+    if (!confirm(`Xóa tài khoản "${username}"? (Token cũ của họ vẫn dùng được đến khi hết hạn.)`)) return;
     try {
       await adminDeleteUser(username);
       setMsg(`Đã xóa tài khoản "${username}".`);

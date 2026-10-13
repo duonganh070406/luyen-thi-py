@@ -48,7 +48,8 @@ Luồng nghiệp vụ (Mermaid): xem `docs/FLOWS.md`.
 | **Frontend** | React 19 + Vite, TypeScript, TailwindCSS v4, Framer Motion, KaTeX |
 | **Backend** | FastAPI (Python), Pydantic, Uvicorn, openpyxl (đọc Excel) |
 | **AI** | Google Gemini API (gọi phía server, key không rời máy chủ) |
-| **Lưu trữ** | SQLite (`data/app.db`, WAL mode) — 14 bảng, backup xoay vòng 7 ngày |
+| **Lưu trữ** | SQLite (`data/app.db`, WAL mode) — 13 bảng, backup xoay vòng 7 ngày |
+| **Xác thực** | JWT stateless (HS256, hết hạn 12h) — production nhớ đặt `JWT_SECRET` riêng |
 | **Container** | Docker + Docker Compose |
 | **Kiểm thử** | Playwright (E2E trình duyệt thật, script ngoài repo) |
 
@@ -65,7 +66,7 @@ eduquest/
 │   │   ├── app.py           # FastAPI app + CORS + routers
 │   │   ├── config.py        # DATA_ROOT (DATA_DIR > data/ > backend/data)
 │   │   ├── db.py            # SQLite WAL + DAO + migrate + backup
-│   │   ├── auth.py          # PBKDF2, token Bearer 12h, lockout, ticket thi
+│   │   ├── auth.py          # JWT HS256 12h, PBKDF2, lockout, ticket thi
 │   │   ├── bank.py          # Ngân hàng đề + import Excel/CSV + ML độ khó
 │   │   ├── examrooms.py     # Phòng thi: ticket, deadline, chấm, BXH
 │   │   ├── markdown_parser.py  # Parser đề .md (nội dung lưu trong DB)
@@ -114,6 +115,7 @@ Biến môi trường (có mặc định, không cần file `.env`):
 FRONTEND_PORT=3000
 BACKEND_PORT=8000
 GEMINI_API_KEY="your_api_key_here"
+JWT_SECRET="doi-thanh-chuoi-ngau-nhien-dai-o-production"
 ```
 
 ### 2. Chạy thủ công (Development)
@@ -151,7 +153,7 @@ Dữ liệu sống trên host ở `./data` (mount vào `/data`), rebuild image k
 
 ## API Endpoints
 
-> Khu ôn luyện cần **đăng nhập** (token Bearer, tự hết hạn 12h).
+> Khu ôn luyện cần **đăng nhập** (JWT Bearer, tự hết hạn 12h).
 > Thao tác quản trị cần role **admin**. Tài liệu tương tác tắt mặc định
 > (bật bằng `ENABLE_DOCS=1`).
 

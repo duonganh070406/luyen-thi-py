@@ -1,15 +1,17 @@
-"""Xac thuc cho EduQuest: admin + user, token Bearer.
+"""Xac thuc cho EduQuest: admin + user, JWT Bearer (stateless).
 
 Luu tru SQLite (src/db.py, file DATA_ROOT/app.db):
 - users            : {username, password_hash, role, created_at}
-- tokens           : {token -> username, role, created_at, expires_at}
 - login_attempts   : {username -> fails, locked_until}
+
+Phien dang nhap la JWT ky HS256 bang JWT_SECRET, payload {sub, role, iat, exp},
+het han sau 12 gio. Backend verify chu ky + exp ma KHONG truy van DB.
+Dang xuat = client xoa token (server khong luu trang thai phien).
 
 Bao mat:
 - Mat khau hash PBKDF2-HMAC-SHA256 200k vong + salt rieng/user.
   Hash cu (SHA256 don gian) van verify duoc va tu dong rehash khi login.
 - Khoa dang nhap 5 phut sau 5 lan sai lien tiep (luu DB, restart khong mat).
-- Phien dang nhap het han sau 12 gio.
 - Tai khoan con dung mat khau mac dinh admin123 bi bat doi mat khau.
 """
 from __future__ import annotations
@@ -20,17 +22,20 @@ import secrets
 import time
 from typing import Any
 
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from src import db as store
+from src.config import JWT_ALGORITHM, JWT_EXPIRATION_HOURS, JWT_SECRET
 
 _SALT = "eduquest-local-salt-v1"
 _PBKDF2_ITER = 200_000
-_SESSION_TTL = 12 * 3600
+_SESSION_TTL = JWT_EXPIRATION_HOURS * 3600
 _MAX_FAILS = 5
 _LOCK_SECS = 5 * 60
+_VALID_ROLES = ("admin", "user")
 _bearer = HTTPBearer(auto_error=False)
 
 store.init_db()
@@ -138,29 +143,34 @@ def rehash_password(username: str, password: str) -> None:
 
 
 def issue_token(username: str, role: str) -> str:
-    token = secrets.token_urlsafe(32)
+    """Cap JWT {sub, role, iat, exp}. Stateless: khong luu DB."""
     now = int(time.time())
-    with store.session() as conn:
-        store.token_put(conn, token, username, role, now, now + _SESSION_TTL)
-    return token
+    payload = {
+        "sub": username,
+        "role": role if role in _VALID_ROLES else "user",
+        "iat": now,
+        "exp": now + _SESSION_TTL,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def revoke_token(token: str) -> None:
-    with store.session() as conn:
-        store.token_delete(conn, token)
-
-
-def revoke_user_tokens(username: str) -> None:
-    """Thu hoi TOAN BO phien cua 1 user (dung khi doi mat khau)."""
-    with store.session() as conn:
-        store.tokens_delete_user(conn, username)
+def decode_token(token: str) -> dict[str, Any] | None:
+    """Verify chu ky HS256 + han exp. Tra ve payload, None neu gia/het han."""
+    try:
+        data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+    if not isinstance(data, dict) or not str(data.get("sub", "")).strip():
+        return None
+    if data.get("role") not in _VALID_ROLES:
+        data["role"] = "user"
+    return data
 
 
 def set_password(username: str, new_password: str) -> None:
     with store.session() as conn:
         if not store.set_password_hash(conn, username, hash_password(new_password)):
             raise ValueError("Không tìm thấy tài khoản.")
-        store.tokens_delete_user(conn, username)
 
 
 def admin_reset_password(username: str, new_password: str) -> None:
@@ -177,27 +187,6 @@ def delete_user(username: str) -> None:
             raise ValueError("Không tìm thấy tài khoản.")
 
 
-def lookup_token(token: str) -> dict[str, Any] | None:
-    with store.session() as conn:
-        info = store.token_get(conn, token)
-        if not info:
-            return None
-        now = int(time.time())
-        exp = info.get("expires_at")
-        if exp is None:
-            # token cu (truoc khi co TTL): cho song them 12h ke tu bay gio
-            store.token_set_expiry(conn, token, now + _SESSION_TTL)
-            info["expires_at"] = now + _SESSION_TTL
-            return info
-        try:
-            if now > int(exp):
-                store.token_delete(conn, token)
-                return None
-        except Exception:
-            return None
-        return info
-
-
 class AuthUser(BaseModel):
     username: str
     role: str
@@ -208,10 +197,10 @@ def get_current_user(
 ) -> AuthUser:
     if not creds or not creds.credentials:
         raise HTTPException(status_code=401, detail="Chưa đăng nhập.")
-    info = lookup_token(creds.credentials)
-    if not info:
-        raise HTTPException(status_code=401, detail="Phiên đăng nhập hết hạn.")
-    return AuthUser(username=info.get("username", ""), role=info.get("role", "user"))
+    payload = decode_token(creds.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập hết hạn hoặc không hợp lệ.")
+    return AuthUser(username=str(payload.get("sub", "")), role=str(payload.get("role", "user")))
 
 
 def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:

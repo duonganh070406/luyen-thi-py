@@ -272,7 +272,7 @@ export function logout() {
   const t = localStorage.getItem('eq_token');
   localStorage.removeItem('eq_token');
   localStorage.removeItem('eq_user');
-  // Thu hoi token phia server (fire-and-forget, khong chan UI)
+  // Bao server (stateless JWT: chi de log, client da xoa token o tren)
   if (t) {
     fetch(url('/api/auth/logout'), {
       method: 'POST',

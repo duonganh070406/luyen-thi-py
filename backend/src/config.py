@@ -79,3 +79,11 @@ def get_cors_origins() -> list[str]:
 
 
 BACKEND_PORT = int(os.environ.get("PORT", os.environ.get("BACKEND_PORT", 8000)))
+
+
+# --- JWT (xac thuc stateless, HS256) ---
+# Production BAT BUOC dat JWT_SECRET rieng qua bien moi truong hoac file .env
+# (config tu nap .env o WORKSPACE_ROOT). Secret mac dinh chi dung cho dev.
+JWT_SECRET = os.environ.get("JWT_SECRET", "eduquest-super-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 12
