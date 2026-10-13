@@ -911,25 +911,25 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
   return (
     <div>
       {/* Tao ky kiem tra */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
+      <div className="rounded-md border border-slate-200 bg-white p-4 sm:p-5 mb-4">
         <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-primary uppercase tracking-wide mb-4">
-          <span className="w-1 h-4 rounded bg-primary inline-block" /> Tạo kỳ kiểm tra
+          <span className="w-1 h-4 rounded-sm bg-primary inline-block" /> Tạo kỳ kiểm tra
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <div className="lg:col-span-2">
             <label className="block text-xs font-bold text-slate-700 mb-1">Tên kỳ kiểm tra</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ví dụ: Kiểm tra nhận thức quý IV/2026"
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Bộ câu hỏi</label>
-            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, topics: [] })} className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50">
+            <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, topics: [] })} className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]">
               {subjects.map((s) => <option key={s.id} value={s.id}>{s.name} ({subjCounts[s.id] ?? '…'} câu)</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Mức độ</label>
-            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50">
+            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]">
               {DIFFS.map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
             </select>
           </div>
@@ -946,8 +946,8 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
                 return (
                   <button
                     key={t} type="button" onClick={() => toggleTopic(t)}
-                    className={`px-2.5 py-1.5 rounded-md border text-[11px] cursor-pointer transition-colors ${
-                      on ? 'border-primary bg-primary text-white font-bold' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/50'
+                    className={`px-2.5 py-1.5 rounded border text-[11px] cursor-pointer transition-colors ${
+                      on ? 'border-primary bg-primary text-white font-bold' : 'border-slate-300 bg-white text-slate-600 hover:border-primary/60 hover:text-primary'
                     }`}
                   >
                     {t} ({n})
@@ -958,29 +958,29 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-1.5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Số câu</label>
             <input type="number" min={1} max={200} value={form.count} onChange={(e) => setForm({ ...form, count: Number(e.target.value) })}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]" />
+            <p className="text-[11px] text-slate-400 mt-1">Số câu hiện có theo lựa chọn: {selectedCount}</p>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Thời gian làm bài (phút)</label>
             <input type="number" min={1} max={300} value={form.time_limit} onChange={(e) => setForm({ ...form, time_limit: Number(e.target.value) })}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">Số lần rời màn hình cho phép</label>
             <input type="number" min={1} max={20} value={form.max_violations} onChange={(e) => setForm({ ...form, max_violations: Number(e.target.value) })}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary bg-slate-50/50" />
+              className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]" />
           </div>
-          <div className="flex items-end pb-2">
+          <div className="flex items-center lg:pt-5">
             <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600"><input type="checkbox" checked={form.auto_submit} onChange={(e) => setForm({ ...form, auto_submit: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Tự thu bài khi vượt số lần</label>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mb-3">Số câu hiện có theo lựa chọn: {selectedCount}</p>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-slate-600 border-t border-slate-100">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-3 mt-1 text-xs text-slate-700 border-t border-slate-200">
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_questions} onChange={(e) => setForm({ ...form, shuffle_questions: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Trộn thứ tự câu hỏi</label>
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.shuffle_options} onChange={(e) => setForm({ ...form, shuffle_options: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Đảo thứ tự phương án</label>
           <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={form.show_answers} onChange={(e) => setForm({ ...form, show_answers: e.target.checked })} className="accent-primary w-3.5 h-3.5" /> Cho thí sinh xem đáp án sau khi nộp</label>
@@ -994,22 +994,22 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
       {msg && <p className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3">{msg}</p>}
 
       {/* Danh sach ky kiem tra */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 mb-4 shadow-sm">
+      <div className="rounded-md border border-slate-200 bg-white p-4 sm:p-5 mb-4">
         <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-primary uppercase tracking-wide mb-3">
-          <span className="w-1 h-4 rounded bg-primary inline-block" /> Danh sách kỳ kiểm tra
+          <span className="w-1 h-4 rounded-sm bg-primary inline-block" /> Danh sách kỳ kiểm tra
         </h2>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-full text-xs min-w-[760px]">
+        <div className="overflow-x-auto border border-slate-200 rounded-md">
+          <table className="w-full text-xs min-w-[820px] border-collapse">
             <thead>
-              <tr className="text-slate-400 text-left border-b border-slate-100">
-                <th className="py-2 pr-2 font-semibold">Tên kỳ kiểm tra</th>
-                <th className="py-2 pr-2 font-semibold">Mã</th>
-                <th className="py-2 pr-2 font-semibold">Bộ câu hỏi</th>
-                <th className="py-2 pr-2 font-semibold">Số câu / phút</th>
-                <th className="py-2 pr-2 font-semibold">Thí sinh (đã nộp)</th>
-                <th className="py-2 pr-2 font-semibold">Trạng thái</th>
-                <th className="py-2 pr-2 font-semibold">Tạo lúc</th>
-                <th className="py-2 font-semibold text-right">Thao tác</th>
+              <tr className="bg-[#f2f3f5] text-left border-b border-slate-200">
+                <th className="py-2.5 px-3 font-bold text-slate-600">Tên kỳ kiểm tra</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600">Mã</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600">Bộ câu hỏi</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600 whitespace-nowrap">Số câu / phút</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600 whitespace-nowrap">Thí sinh (đã nộp)</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600">Trạng thái</th>
+                <th className="py-2.5 px-3 font-bold text-slate-600 whitespace-nowrap">Tạo lúc</th>
+                <th className="py-2.5 px-3" />
               </tr>
             </thead>
             <tbody>
@@ -1017,33 +1017,33 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
                 const st = stats[r.id] || { total: 0, submitted: 0 };
                 const open = r.status === 'open';
                 return (
-                  <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/60">
-                    <td className="py-2.5 pr-2 font-bold text-slate-800">{r.name}</td>
-                    <td className="py-2.5 pr-2 font-mono font-extrabold text-primary">{r.code}</td>
-                    <td className="py-2.5 pr-2 text-slate-600">{r.subject}</td>
-                    <td className="py-2.5 pr-2 text-slate-600">{r.count} / {r.time_limit}</td>
-                    <td className="py-2.5 pr-2 text-slate-600">{st.total} ({st.submitted})</td>
-                    <td className="py-2.5 pr-2">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${open ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-slate-100 text-slate-500'}`}>
+                  <tr key={r.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+                    <td className="py-3 px-3 font-bold text-slate-800">{r.name}</td>
+                    <td className="py-3 px-3 font-extrabold text-primary whitespace-nowrap">{r.code}</td>
+                    <td className="py-3 px-3 text-slate-600">{r.subject}</td>
+                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{r.count} / {r.time_limit}</td>
+                    <td className="py-3 px-3 text-slate-600 whitespace-nowrap">{st.total} ({st.submitted})</td>
+                    <td className="py-3 px-3">
+                      <span className={`px-2 py-0.5 rounded border text-[11px] font-bold whitespace-nowrap ${open ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                         {open ? 'Đang diễn ra' : 'Đã kết thúc'}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-2 text-slate-500 whitespace-nowrap">{fmtRoomTime(r.created_at)}</td>
-                    <td className="py-2.5">
+                    <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{fmtRoomTime(r.created_at)}</td>
+                    <td className="py-3 px-3">
                       <div className="flex justify-end gap-1.5">
                         <button type="button" onClick={() => setMonitorId(r.id)} title="Theo dõi trực tiếp"
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded border bg-white border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer whitespace-nowrap">
                           <Monitor size={12} /> Theo dõi
                         </button>
                         {open && (
                           <button type="button" title="Kết thúc kỳ kiểm tra (thu toàn bộ bài)"
                             onClick={async () => { if (confirm(`Kết thúc kỳ "${r.name}" (${r.code})? Tất cả bài sẽ bị thu.`)) { await closeRoom(r.id); reload(); } }}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded border bg-white border-slate-200 text-[11px] font-bold text-red-700 hover:border-red-400 hover:bg-red-50 cursor-pointer whitespace-nowrap">
                             <Lock size={12} /> Kết thúc
                           </button>
                         )}
                         <button type="button" onClick={() => doExport(r.id)} title="Xuất báo cáo CSV"
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer">
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded border bg-white border-slate-200 text-[11px] font-bold text-slate-600 hover:border-primary hover:text-primary cursor-pointer whitespace-nowrap">
                           <Download size={12} /> Báo cáo
                         </button>
                       </div>
