@@ -1,9 +1,11 @@
+name: a05-assessment-system
+
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: eduquest-backend
+    container_name: a05-assessment-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -24,7 +26,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: eduquest-frontend
+    container_name: a05-assessment-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:

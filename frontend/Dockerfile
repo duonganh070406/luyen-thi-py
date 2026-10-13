@@ -1,5 +1,7 @@
 FROM node:20-slim
 
+LABEL project="a05-assessment-system" component="frontend"
+
 WORKDIR /app
 
 # Copy package files và cài đặt dependencies
