@@ -2,19 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Play, Flag, RotateCcw, CheckCircle2, XCircle } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer.tsx';
 import CompetencyChart, { DIFF_LABEL } from '../components/CompetencyChart.tsx';
+import DifficultySelector, { EXAM_DIFF_LABEL } from '../components/DifficultySelector.tsx';
 import { attemptFromHistory, questionFromApi } from '../mapBackend.ts';
 import type { Attempt, Question } from '../types.ts';
 import {
   appendHistory, getBankTopics, getCompetency, getHistory, getPracticeQuiz,
   getSubjectStats, listSubjects, reportQuestion,
 } from '../services/api.ts';
-
-const DIFFS = [
-  { v: 'Hon hop', label: 'Hỗn hợp (tất cả độ khó)', hint: 'Lấy đều các mức độ' },
-  { v: 'De', label: 'Dễ', hint: 'Trộn: 50% Dễ · 30% TB · 20% Khó' },
-  { v: 'Trung binh', label: 'Trung bình', hint: 'Trộn: 30% Dễ · 40% TB · 30% Khó' },
-  { v: 'Kho', label: 'Khó', hint: 'Trộn: 20% Dễ · 30% TB · 50% Khó' },
-];
 
 interface ResultRow { q: Question; user: any; ok: boolean | null; fb?: string; }
 
@@ -209,7 +203,7 @@ export default function PracticePage() {
       const attemptId = `att_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       await appendHistory(subject, {
         attemptId,
-        examName: `Luyện: ${picked.length ? picked.join(',') : 'Hỗn hợp'} - ${DIFF_LABEL[difficulty] ?? difficulty}`,
+        examName: `Luyện: ${picked.length ? picked.join(',') : 'Hỗn hợp'} - ${EXAM_DIFF_LABEL[difficulty] ?? difficulty}`,
         questions: questions.map((q) => ({
           id: q.id, type: q.type, text: q.text, options: q.options,
           correctAnswers: q.correctAnswers, referenceAnswer: q.referenceAnswer,
@@ -464,18 +458,12 @@ export default function PracticePage() {
           </div>
         </div>
 
-        {/* Độ khó */}
+        {/* Mức độ */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold text-slate-700 mb-2">Độ khó</label>
-          <select
+          <DifficultySelector
             value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white cursor-pointer"
-          >
-            {DIFFS.map((d) => (
-              <option key={d.v} value={d.v} title={d.hint}>{d.label}</option>
-            ))}
-          </select>
+            onChange={setDifficulty}
+          />
         </div>
 
         {/* Số câu + Trộn câu hỏi + Đảo đáp án */}

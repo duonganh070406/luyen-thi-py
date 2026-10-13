@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Upload, Plus, Trash2, Monitor, Lock, Download, Pencil, Flag, Building2, KeyRound } from 'lucide-react';
 import { DIFF_LABEL } from '../components/CompetencyChart.tsx';
+import DifficultySelector from '../components/DifficultySelector.tsx';
 import {
   currentUser, listSubjects, getBank,
   previewImportFile, replaceBank, createRoom, listRooms, closeRoom,
@@ -941,8 +942,6 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
     exportRoomCsv(roomId);
   };
 
-  const DIFFS = ['Hon hop', 'De', 'Trung binh', 'Kho'];
-
   return (
     <div>
       {/* Tao ky kiem tra */}
@@ -950,7 +949,7 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
         <h2 className="flex items-center gap-2 font-extrabold text-[13px] text-primary uppercase tracking-wide mb-4">
           <span className="w-1 h-4 rounded-sm bg-primary inline-block" /> Tạo kỳ kiểm tra
         </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
           <div className="lg:col-span-2">
             <label className="block text-xs font-bold text-slate-700 mb-1">Tên kỳ kiểm tra</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ví dụ: Kiểm tra nhận thức quý IV/2026"
@@ -975,12 +974,13 @@ function RoomsTab({ subjects }: { subjects: { id: string; name: string }[] }) {
               {subjects.length === 0 && <p className="text-[11px] text-slate-400 px-1.5 py-1">Chưa có bộ câu hỏi.</p>}
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Mức độ</label>
-            <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-[13px] text-slate-800 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-[#f7f8f9]">
-              {DIFFS.map((d) => <option key={d} value={d}>{DIFF_LABEL[d] ?? d}</option>)}
-            </select>
-          </div>
+        </div>
+
+        <div className="mb-3">
+          <DifficultySelector
+            value={form.difficulty}
+            onChange={(val) => setForm({ ...form, difficulty: val })}
+          />
         </div>
 
         <div className="mb-3">
