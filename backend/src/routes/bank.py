@@ -44,46 +44,6 @@ def get_topics(
     return {"topics": bank_store.bank_topics(subject), "counts": bank_store.bank_counts(subject)}
 
 
-class BankUpdateBody(BaseModel):
-    question: str | None = None
-    options: list[str] | None = None
-    answer: str | None = None
-    difficulty: str | None = None
-    topic: str | None = None
-    explanation: str | None = None
-
-
-@router.put("/api/subjects/{subject}/bank/{qid}")
-def update_question(
-    subject: str,
-    qid: str,
-    body: BankUpdateBody,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-):
-    items = bank_store.load_bank(subject)
-    found = False
-    for q in items:
-        if str(q.get("id")) == qid:
-            found = True
-            if body.question is not None:
-                q["question"] = body.question
-            if body.options is not None:
-                q["options"] = body.options
-            if body.answer is not None:
-                q["answer"] = bank_store.normalize_answer(body.answer, len(q.get("options", []) or [1, 2]))
-            if body.difficulty is not None:
-                q["difficulty"] = bank_store.normalize_difficulty(body.difficulty)
-            if body.topic is not None:
-                q["topic"] = body.topic
-            if body.explanation is not None:
-                q["explanation"] = body.explanation
-            q["updated_at"] = int(time.time())
-    if not found:
-        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
-    bank_store.save_bank(subject, items)
-    return {"ok": True}
-
-
 @router.delete("/api/subjects/{subject}/bank")
 def delete_bank(
     subject: str,

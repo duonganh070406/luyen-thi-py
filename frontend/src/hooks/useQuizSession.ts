@@ -1,30 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Question, Attempt, AppState, QuizParams } from '../types.ts';
-import { appendHistory, getExamData, getComprehensiveQuiz, getHistoryAttempt } from '../services/api.ts';
+import { appendHistory, getComprehensiveQuiz, getHistoryAttempt } from '../services/api.ts';
 import { attemptFromHistory, questionFromApi } from '../mapBackend.ts';
 
 interface UseQuizSessionParams {
   selectedSubjectId: string | null;
-  decodedExamName: string | null;
   selectedAttemptId: string | null;
   attempts: Attempt[];
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   setIsLoadingData: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsLoadingExamData: React.Dispatch<React.SetStateAction<boolean>>;
-  selectedExam: string | null;
   defaultQuizConfig: QuizParams;
 }
 
 export function useQuizSession({
   selectedSubjectId,
-  decodedExamName,
   selectedAttemptId,
   attempts,
   setState,
   setIsLoadingData,
-  setIsLoadingExamData,
-  selectedExam,
   defaultQuizConfig,
 }: UseQuizSessionParams) {
   const navigate = useNavigate();
@@ -62,67 +56,7 @@ export function useQuizSession({
   const [justSubmittedAttemptId, setJustSubmittedAttemptId] = useState<string | null>(null);
   const [activeAttempt, setActiveAttempt] = useState<Attempt | null>(null);
 
-  // 1. Tải đề thi cụ thể từ URL
-  useEffect(() => {
-    const isExamPath = location.pathname.includes('/exam/') || location.pathname.includes('/flashcard/');
-    if (!selectedSubjectId || !isExamPath || !decodedExamName) return;
-
-    const limit = parseInt(searchParams.get('timeLimit') || '0');
-
-    async function fetchQuestions() {
-      const saved = localStorage.getItem("active_quiz_session");
-      if (saved) {
-        try {
-          const session = JSON.parse(saved);
-          if (session.subjectId === selectedSubjectId && session.url === (location.pathname + location.search)) {
-            setActiveQuizQuestions(session.questions);
-            setActiveExamName(session.examName);
-            setQuizAnswers(session.answers);
-            setEssayFeedbacks(session.essayFeedbacks || {});
-            setQuizStartTime(session.quizStartTime);
-            setTimeLimit(session.timeLimit);
-            setTimeLeft(session.timeLeft);
-            setCurrentQuestionIndex(session.currentQuestionIndex || 0);
-            setShowResult(false);
-            return;
-          }
-        } catch (e) {
-          console.error("Lỗi khôi phục session", e);
-        }
-      }
-
-      setIsLoadingExamData(true);
-      try {
-        const raw = await getExamData(selectedSubjectId!, decodedExamName!);
-        const qs = (Array.isArray(raw) ? raw : []).map(r => questionFromApi(selectedSubjectId!, r as Record<string, unknown>));
-        setActiveQuizQuestions(qs);
-        setActiveExamName(decodedExamName!.replace('.json', ''));
-        setCurrentQuestionIndex(0);
-        setQuizAnswers({});
-        setEssayFeedbacks({});
-        setQuizStartTime(Date.now());
-        setShowResult(false);
-        if (limit > 0) {
-          setTimeLimit(limit);
-          setTimeLeft(limit * 60);
-        } else {
-          setTimeLimit(0);
-          setTimeLeft(0);
-        }
-      } catch (e) {
-        console.error("Error fetching exam questions:", e);
-        navigate(`/subject/${selectedSubjectId}`);
-      } finally {
-        setIsLoadingExamData(false);
-      }
-    }
-
-    if (activeQuizQuestions.length === 0 || activeExamName !== decodedExamName.replace('.json', '')) {
-      fetchQuestions();
-    }
-  }, [selectedSubjectId, decodedExamName, location.pathname, searchParams]);
-
-  // 2. Tạo đề ngẫu nhiên từ URL
+  // Tao de ngau nhien tu ngan hang de (bank) theo URL
   useEffect(() => {
     const isRandomQuizPath = location.pathname.endsWith('/quiz/random');
     if (!selectedSubjectId || !isRandomQuizPath) return;
@@ -248,8 +182,7 @@ export function useQuizSession({
 
   // Auto-save quiz session state to localStorage
   useEffect(() => {
-    const isQuizPath = location.pathname.includes('/exam/') ||
-      location.pathname.includes('/quiz/');
+    const isQuizPath = location.pathname.includes('/quiz/');
 
     if (isQuizPath && selectedSubjectId && activeQuizQuestions.length > 0 && !showResult) {
       const session = {
@@ -283,8 +216,7 @@ export function useQuizSession({
 
   // 4. Dọn dẹp trạng thái thi khi thoát khỏi màn hình thi
   useEffect(() => {
-    const isQuizPath = location.pathname.includes('/exam/') ||
-      location.pathname.includes('/quiz/') ||
+    const isQuizPath = location.pathname.includes('/quiz/') ||
       location.pathname.includes('/history/');
     if (!isQuizPath) {
       setActiveQuizQuestions([]);
@@ -300,11 +232,6 @@ export function useQuizSession({
   const handleStartQuiz = (subjId: string, params: QuizParams) => {
     const configStr = encodeURIComponent(JSON.stringify(params));
     navigate(`/subject/${subjId}/quiz/random?config=${configStr}&timeLimit=${timeLimit}`);
-  };
-
-  const handleStartExam = () => {
-    if (!selectedExam || !selectedSubjectId) return;
-    navigate(`/subject/${encodeURIComponent(selectedSubjectId)}/exam/${encodeURIComponent(selectedExam)}?timeLimit=${timeLimit}`);
   };
 
   const handleFinishQuiz = async () => {
@@ -364,7 +291,6 @@ export function useQuizSession({
     showResult,
     isGrading,
     handleStartQuiz,
-    handleStartExam,
     handleFinishQuiz,
   };
 }

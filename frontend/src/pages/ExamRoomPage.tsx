@@ -127,7 +127,7 @@ export default function ExamRoomPage() {
       } else {
         setTimeLeft((r.room?.time_limit || 30) * 60);
       }
-      setDone(r.submitted ? { score: 0, total: (r.questions || []).length } : null);
+      setDone(r.submitted ? { score: r.score ?? 0, total: r.total ?? (r.questions || []).length } : null);
       setDetail(r.detail || []);
       credRef.current = { code: code.trim().toUpperCase(), participant: name.trim(), ticket: r.ticket || '', idNumber: idNumber.trim() };
       localStorage.setItem('eq_exam_session', JSON.stringify(credRef.current));
@@ -135,8 +135,6 @@ export default function ExamRoomPage() {
         const lb = await getLeaderboard(r.room.id).catch(() => null);
         if (lb) {
           setRanking(lb.ranking || []);
-          const me = (lb.ranking || []).find((x: any) => x.participant === name.trim());
-          if (me) setDone({ score: me.score, total: me.total });
         }
       }
     } catch (err) {

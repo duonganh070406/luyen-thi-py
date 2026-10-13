@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import random
-import urllib.parse
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,10 +17,7 @@ from src.models import (
     QuizConfigModel,
 )
 from src.utils import (
-    note_content,
-    parse_exam_content,
     require_subject,
-    subject_image_base,
 )
 from src.grading_strategies import (
     GradingRegistry,
@@ -115,43 +110,6 @@ def update_contact_endpoint(
     return {"ok": True, **saved}
 
 
-@router.get("/api/subjects/{subject}/exams")
-def list_subject_exams(
-    subject: str,
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> list[str]:
-    """Trả về danh sách tên các đề thi trong môn học (luu trong DB)."""
-    subject = require_subject(subject)
-    with store.session() as conn:
-        return store.exams_list(conn, subject)
-
-
-@router.get("/api/subjects/{subject}/exams/{exam_name:path}")
-def get_exam_data(
-    subject: str,
-    exam_name: str,
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> list[Any]:
-    """Trả về nội dung câu hỏi của một đề thi cụ thể (luu trong DB)."""
-    subject = require_subject(subject)
-    unquoted = urllib.parse.unquote(exam_name).strip()
-    with store.session() as conn:
-        row = store.exam_get(conn, subject, unquoted)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Exam not found")
-
-    try:
-        return parse_exam_content(
-            subject, unquoted, row.get("content", ""),
-            image_base_url=subject_image_base(subject),
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to parse markdown: {str(e)}",
-        ) from e
-
-
 @router.get("/api/subjects/{subject}/history")
 def get_history(
     subject: str,
@@ -176,44 +134,6 @@ def get_history_attempt(
             if str(att.get("attemptId")) == attempt_id:
                 return att
     raise HTTPException(status_code=404, detail="Không tìm thấy bài làm.")
-
-
-@router.get("/api/subjects/{subject}/notes")
-def list_subject_notes(
-    subject: str,
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> list[str]:
-    """Trả về danh sách tên các file ghi chú .md trong môn học (luu trong DB)."""
-    subject = require_subject(subject)
-    with store.session() as conn:
-        return store.notes_list(conn, subject)
-
-
-@router.get("/api/subjects/{subject}/notes/{note_name:path}")
-def get_note_content(
-    subject: str,
-    note_name: str,
-    _: auth_store.AuthUser = Depends(auth_store.get_current_user),
-) -> dict[str, str]:
-    """Trả về nội dung một file ghi chú cụ thể (luu trong DB)."""
-    subject = require_subject(subject)
-    unquoted = urllib.parse.unquote(note_name).strip()
-    with store.session() as conn:
-        row = store.note_get(conn, subject, unquoted)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Note not found")
-
-    try:
-        content = note_content(
-            row.get("content", ""),
-            image_base_url=subject_image_base(subject),
-        )
-        return {"content": content}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to read note: {str(e)}",
-        ) from e
 
 
 @router.post("/api/subjects/{subject}/history", status_code=201)
@@ -367,66 +287,21 @@ def get_comprehensive_quiz(
     quiz_config: QuizConfigModel,
     _: auth_store.AuthUser = Depends(auth_store.get_current_user),
 ) -> list[Any]:
-    """Tổng hợp tất cả câu hỏi từ các đề (luu trong DB) và chọn ngẫu nhiên theo loại."""
+    """Tong hop cau hoi tu ngan hang de (bank CSV/Excel) va chon ngau nhien theo loai."""
     subject = require_subject(subject)
-    with store.session() as conn:
-        exam_files = store.exams_list(conn, subject)
 
-    if quiz_config.sources:
-        allowed = {s.lower() for s in quiz_config.sources}
-        filtered = []
-        for f in exam_files:
-            stem = f.rsplit(".", 1)[0] if "." in f else f
-            file_name = f.split("/")[-1]
-            file_stem = (
-                file_name.rsplit(".", 1)[0] if "." in file_name else file_name
-            )
-            parts = Path(f).parts[:-1]
-            is_match = (
-                f.lower() in allowed
-                or stem.lower() in allowed
-                or file_name.lower() in allowed
-                or file_stem.lower() in allowed
-                or any(part.lower() in allowed for part in parts)
-            )
-            if is_match:
-                filtered.append(f)
-        exam_files = filtered
-
-    all_questions = []
-    img_base = subject_image_base(subject)
-    with store.session() as conn:
-        exam_contents = [
-            (f, (store.exam_get(conn, subject, f) or {}).get("content", ""))
-            for f in exam_files
-        ]
-    for exam_file, content in exam_contents:
-        try:
-            questions = parse_exam_content(subject, exam_file, content, image_base_url=img_base)
-            all_questions.extend(questions)
-        except Exception:
-            pass  # Bỏ qua nếu lỗi parse
-
-    # Gop them ngan hang de (questions.json import tu Excel/CSV) de luyen theo chu de/do kho
+    # Nguon duy nhat: ngan hang de (bang bank_questions).
     try:
         from src import bank as bank_store
 
-        for bq in bank_store.unified_questions(subject):
-            all_questions.append(
-                {
-                    "id": bq.get("id"),
-                    "type": "single",
-                    "name": bq.get("id"),
-                    "question": bq.get("question", ""),
-                    "options": bq.get("options", []),
-                    "answer": bq.get("answer", 0),
-                    "explanation": bq.get("explanation", ""),
-                    "difficulty": bq.get("difficulty", "Trung binh"),
-                    "topic": bq.get("topic", "Chung"),
-                }
-            )
+        all_questions = []
+        for bq in bank_store.load_bank(subject):
+            try:
+                all_questions.append(bank_store.to_quiz_item(bq))
+            except Exception:
+                continue
     except Exception:
-        pass
+        all_questions = []
 
     # Loc theo chu de hon hop + do kho co kiem soat ty le tron (neu FE gui kem).
     # Khong co topics/difficulty -> roi xuong logic cu (ty le theo loai cau).

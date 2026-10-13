@@ -2,11 +2,10 @@
 
 - File DB: DATA_ROOT/app.db (ton trong DATA_DIR), che do WAL + busy_timeout
   de nhieu thread doc song song, ghi tuan tu khong mat du lieu.
-- File .md de thi / ghi chu / anh giu nguyen tren dia (SQLite khong chua blob).
 - File JSON cu GIU LAI lam backup, khong xoa; migrate 1 lan khi DB moi tao.
 
-12 bang: users, login_attempts, rooms, room_sessions, subjects, subject_exams,
-subject_notes, bank_questions, history_attempts, reports, units, settings.
+10 bang: users, login_attempts, rooms, room_sessions, subjects,
+bank_questions, history_attempts, reports, units, settings.
 
 Xac thuc dung JWT stateless (src/auth.py): khong con bang tokens.
 DB cu con bang nay se duoc DROP khi khoi dong.
@@ -128,20 +127,9 @@ CREATE TABLE IF NOT EXISTS settings(
 );
 -- Bang ai_profiles cu (neu con tu ban truoc) duoc xoa han.
 DROP TABLE IF EXISTS ai_profiles;
-CREATE TABLE IF NOT EXISTS subject_exams(
-  subject TEXT NOT NULL DEFAULT '',
-  name TEXT NOT NULL DEFAULT '',
-  content TEXT NOT NULL DEFAULT '',
-  updated_at INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(subject, name)
-);
-CREATE TABLE IF NOT EXISTS subject_notes(
-  subject TEXT NOT NULL DEFAULT '',
-  name TEXT NOT NULL DEFAULT '',
-  content TEXT NOT NULL DEFAULT '',
-  updated_at INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY(subject, name)
-);
+-- Bang markdown cu (de .md / ghi chu, da chuyen sang bank CSV/Excel) duoc xoa han.
+DROP TABLE IF EXISTS subject_exams;
+DROP TABLE IF EXISTS subject_notes;
 """
 
 from contextlib import contextmanager
@@ -593,66 +581,6 @@ def subject_save_config(conn: sqlite3.Connection, name: str, active: bool, descr
     )
 
 
-# ---------- de thi + ghi chu markdown (luu trong DB) ----------
-
-def exams_list(conn: sqlite3.Connection, subject: str) -> list[str]:
-    return [
-        r["name"]
-        for r in conn.execute(
-            "SELECT name FROM subject_exams WHERE subject=? ORDER BY name",
-            ((subject or "").strip(),),
-        )
-    ]
-
-
-def exam_get(conn: sqlite3.Connection, subject: str, name: str) -> dict[str, Any] | None:
-    r = conn.execute(
-        "SELECT subject, name, content, updated_at FROM subject_exams WHERE subject=? AND name=?",
-        ((subject or "").strip(), (name or "").strip()),
-    ).fetchone()
-    return dict(r) if r else None
-
-
-def exam_put(conn: sqlite3.Connection, subject: str, name: str, content: str) -> None:
-    subject_ensure(conn, subject)
-    _write(
-        conn,
-        "INSERT INTO subject_exams(subject, name, content, updated_at)"
-        " VALUES(?,?,?,?) ON CONFLICT(subject, name)"
-        " DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
-        ((subject or "").strip(), (name or "").strip(), content or "", int(time.time())),
-    )
-
-
-def notes_list(conn: sqlite3.Connection, subject: str) -> list[str]:
-    return [
-        r["name"]
-        for r in conn.execute(
-            "SELECT name FROM subject_notes WHERE subject=? ORDER BY name",
-            ((subject or "").strip(),),
-        )
-    ]
-
-
-def note_get(conn: sqlite3.Connection, subject: str, name: str) -> dict[str, Any] | None:
-    r = conn.execute(
-        "SELECT subject, name, content, updated_at FROM subject_notes WHERE subject=? AND name=?",
-        ((subject or "").strip(), (name or "").strip()),
-    ).fetchone()
-    return dict(r) if r else None
-
-
-def note_put(conn: sqlite3.Connection, subject: str, name: str, content: str) -> None:
-    subject_ensure(conn, subject)
-    _write(
-        conn,
-        "INSERT INTO subject_notes(subject, name, content, updated_at)"
-        " VALUES(?,?,?,?) ON CONFLICT(subject, name)"
-        " DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
-        ((subject or "").strip(), (name or "").strip(), content or "", int(time.time())),
-    )
-
-
 # ---------- bank ----------
 
 _BANK_COLS = "id, subject, question, options, answer, difficulty, topic, explanation, created_at, updated_at"
@@ -1006,8 +934,7 @@ def _migrate_from_json(conn: sqlite3.Connection) -> dict[str, int]:
             if not entry.is_dir() or entry.name == "room_sessions":
                 continue
             has_bank = (entry / "questions.json").is_file()
-            has_md = next((entry / "markdown").rglob("*.md"), None) is not None if (entry / "markdown").is_dir() else False
-            if not has_bank and not has_md:
+            if not has_bank:
                 continue
             name = entry.name
             cfg = _read_json_file(entry / "subject_config.json", {})
@@ -1134,7 +1061,7 @@ def _migrate_sessions_pk(conn: sqlite3.Connection) -> bool:
 
 
 def subject_delete(conn: sqlite3.Connection, name: str) -> bool:
-    """Xoa ca bo de: cau hoi + de md + ghi chu + dong subject. Tra ve True neu co xoa."""
+    """Xoa ca bo de: cau hoi bank + dong subject. Tra ve True neu co xoa."""
     name = (name or "").strip()
     if not name:
         return False
@@ -1142,8 +1069,6 @@ def subject_delete(conn: sqlite3.Connection, name: str) -> bool:
         conn.execute("BEGIN IMMEDIATE")
         try:
             conn.execute("DELETE FROM bank_questions WHERE subject=?", (name,))
-            conn.execute("DELETE FROM subject_exams WHERE subject=?", (name,))
-            conn.execute("DELETE FROM subject_notes WHERE subject=?", (name,))
             cur = conn.execute("DELETE FROM subjects WHERE name=?", (name,))
             conn.execute("COMMIT")
             return cur.rowcount > 0
@@ -1192,50 +1117,6 @@ def _backup_db() -> None:
         print(f"[db] canh bao backup: {e}")
 
 
-def _migrate_markdown_to_db(conn: sqlite3.Connection) -> dict[str, int]:
-    """Nap de .md + ghi chu .md tu dia vao DB (1 lan: chi khi bang con rong).
-    Khong bao gio ghi de dong subjects (DB la nguon dung)."""
-    counts = {"exams": 0, "notes": 0}
-    try:
-        root = DATA_ROOT
-        if not root.is_dir():
-            return counts
-        need_exams = conn.execute("SELECT COUNT(*) AS n FROM subject_exams").fetchone()["n"] == 0
-        need_notes = conn.execute("SELECT COUNT(*) AS n FROM subject_notes").fetchone()["n"] == 0
-        if not need_exams and not need_notes:
-            return counts
-        for entry in sorted(root.iterdir(), key=lambda p: p.name.lower()):
-            if not entry.is_dir():
-                continue
-            subject = entry.name
-            if need_exams:
-                md_dir = entry / "markdown"
-                if md_dir.is_dir():
-                    for f in sorted(md_dir.rglob("*.md"), key=lambda p: str(p).lower()):
-                        try:
-                            content = f.read_text(encoding="utf-8")
-                        except Exception:
-                            continue
-                        exam_put(conn, subject, f.relative_to(md_dir).as_posix(), content)
-                        counts["exams"] += 1
-            if need_notes:
-                # ho tro ca thu muc "note" chuan va "note.md" (ten di dat truoc day)
-                for notename in ("note", "note.md"):
-                    note_dir = entry / notename
-                    if not note_dir.is_dir():
-                        continue
-                    for f in sorted(note_dir.rglob("*.md"), key=lambda p: str(p).lower()):
-                        try:
-                            content = f.read_text(encoding="utf-8")
-                        except Exception:
-                            continue
-                        note_put(conn, subject, f.relative_to(note_dir).as_posix(), content)
-                        counts["notes"] += 1
-    except Exception as e:
-        print(f"[db] canh bao migrate markdown: {e}")
-    return counts
-
-
 _INITIALIZED = False
 _INIT_LOCK = threading.Lock()
 
@@ -1270,12 +1151,6 @@ def init_db() -> dict[str, int] | None:
             if fresh:
                 counts = _migrate_from_json(conn)
                 print(f"[db] migrate JSON -> SQLite xong: {counts}")
-            try:
-                md_counts = _migrate_markdown_to_db(conn)
-                if md_counts["exams"] or md_counts["notes"]:
-                    print(f"[db] migrate markdown -> SQLite xong: {md_counts}")
-            except Exception as e:
-                print(f"[db] canh bao migrate markdown: {e}")
             _backup_db()
             _ensure_seed_admin(conn)
             _INITIALIZED = True

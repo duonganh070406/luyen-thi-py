@@ -1,43 +1,62 @@
 # EduQuest
 
-Không gian ôn tập cá nhân + phòng thi online — hệ thống hóa kiến thức qua trắc nghiệm,
-import đề Excel/CSV, luyện theo chủ đề/độ khó, thi có giám sát chống gian lận.
+Không gian ôn tập cá nhân + phòng thi online: luyện trắc nghiệm theo chủ đề/độ khó,
+import đề Excel/CSV, thi có giám sát chống gian lận.
+
+---
+
+## Chạy dự án
+
+**Yêu cầu:** Python ≥ 3.11 · Node.js ≥ 18 · Docker (tuỳ chọn) · Gemini API Key (tuỳ chọn, chấm tự luận AI).
+
+Cấu hình qua biến môi trường hoặc file `.env` (xem `.env.sample`). Đã có mặc định, không bắt buộc.
+
+```env
+FRONTEND_PORT=3000
+BACKEND_PORT=8000
+GEMINI_API_KEY="your_api_key_here"
+JWT_SECRET="chuoi_ngau_nhien_dai_o_production"
+```
+
+**Thủ công (Development):**
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+python main.py            # → http://localhost:8000 (Swagger tắt mặc định, bật bằng ENABLE_DOCS=1)
+
+# Frontend
+cd frontend
+npm install
+npm run dev               # → http://localhost:3000 (proxy /api, /health, /data về backend)
+```
+
+**Docker Compose:**
+
+```bash
+docker compose up --build # FE:3000 · API:8000 · data mount vào /data, rebuild không mất
+```
+
+> Đăng nhập quản trị mặc định: `admin` / `admin123`.
 
 ---
 
 ## Tính năng
 
-### Luyện thi (cần đăng nhập)
-
-- **Chọn chủ đề hỗn hợp, độ khó, số lượng câu** — đề trộn thông minh theo tỉ lệ
-  (Dễ: 50% Dễ · 30% TB · 20% Khó; TB: 30-40-30; Khó: 20-30-50), trộn câu hỏi + đảo đáp án.
-- **Biểu đồ năng lực** — chủ đề/độ khó nào sai nhiều → ôn lại; **câu sai gần đây**.
-- **Báo lỗi câu hỏi** — người luyện báo sai, quản trị viên duyệt.
+- **Luyện thi** (cần đăng nhập): chọn chủ đề hỗn hợp + độ khó + số câu, đề trộn theo tỉ lệ
+  (Dễ 50-30-20 · TB 30-40-30 · Khó 20-30-50) và đảo đáp án; biểu đồ năng lực, câu sai gần đây.
+- **5 loại câu hỏi** (1 đáp án, nhiều đáp án, điền ngắn, nối đôi, tự luận) — chấm tự luận bằng AI,
+  lịch sử & thống kê, flashcard, ghi chú bài giảng, báo lỗi câu hỏi.
+- **Phòng thi online** (thí sinh nhập tên + đơn vị + CCCD + mã phòng): tự lưu từng câu,
+  tự thu khi hết giờ (server chốt deadline), chống gian lận (phát hiện chuyển tab), đáp án không
+  gửi cho client trước khi nộp, mỗi phiên có ticket riêng.
+- **Quản trị viên**: import Excel/CSV (tối đa 10MB, xem trước trước khi ghi đè), quản lý ngân hàng đề,
+  duyệt báo lỗi, ML gợi ý độ khó, giám sát trực tiếp (poll 3s) + đóng/thu bài + sửa BXH + xuất CSV,
+  quản lý đơn vị & tài khoản.
 - **ML gợi ý độ khó** — dựa trên tỉ lệ sai lịch sử (kiến trúc mở, thay được model thật).
-- 4–5 loại câu hỏi (1 đáp án, nhiều đáp án, điền ngắn, nối đôi, tự luận),
-  chấm tự luận bằng AI, lịch sử & thống kê, flashcard, ghi chú bài giảng.
 
-### Phòng thi online (thí sinh nhập tên + đơn vị + CCCD + mã phòng)
-
-- **Tự động lưu từng câu** ngay khi bấm; **tự động thu bài** khi hết giờ
-  (server chốt theo deadline, không tin đồng hồ client).
-- **Chống gian lận**: phát hiện chuyển tab (debounce), quá giới hạn tự thu; đáp án đúng
-  **không bao giờ gửi cho client** trước khi nộp; mỗi phiên thi có ticket riêng.
-- Quản trị viên: **tạo phòng**, **giám sát trực tiếp** (poll 3s), **đóng + thu bài**,
-  **sửa bảng xếp hạng**, **xuất báo cáo CSV**.
-
-### Quản trị viên (đăng nhập `admin` / `admin123`)
-
-- **Import Excel/CSV** đúng mẫu: `Câu hỏi | A | B | C | D | E | Đáp án | Độ khó | Chủ đề | Giải thích`
-  (tối đa 10MB, xem trước trước khi ghi đè).
-- Quản lý ngân hàng đề (xem/sửa độ khó inline, xóa cả bộ), duyệt báo lỗi, chạy ML gợi ý độ khó.
-- Quản lý đơn vị, tài khoản (tạo/reset mật khẩu/xóa, đổi mật khẩu lần đầu bắt buộc).
-- Đăng xuất thu hồi token phía server.
-
-### Trang chung
-
-Trang chủ · Ôn luyện · Tham gia kiểm tra · Hướng dẫn · Liên hệ · Đăng nhập · Quản trị.
-Luồng nghiệp vụ (Mermaid): xem `docs/FLOWS.md`.
+**Trang:** Chủ · Ôn luyện · Tham gia kiểm tra · Hướng dẫn · Liên hệ · Đăng nhập · Quản trị.
 
 ---
 
@@ -46,12 +65,126 @@ Luồng nghiệp vụ (Mermaid): xem `docs/FLOWS.md`.
 | Thành phần | Stack |
 | :--- | :--- |
 | **Frontend** | React 19 + Vite, TypeScript, TailwindCSS v4, Framer Motion, KaTeX |
-| **Backend** | FastAPI (Python), Pydantic, Uvicorn, openpyxl (đọc Excel) |
+| **Backend** | FastAPI (Python), Pydantic, Uvicorn, openpyxl |
 | **AI** | Google Gemini API (gọi phía server, key không rời máy chủ) |
-| **Lưu trữ** | SQLite (`data/app.db`, WAL mode) — 13 bảng, backup xoay vòng 7 ngày |
-| **Xác thực** | JWT stateless (HS256, hết hạn 12h) — production nhớ đặt `JWT_SECRET` riêng |
+| **Lưu trữ** | SQLite (`data/app.db`, WAL) — 13 bảng, backup xoay vòng 7 ngày |
+| **Xác thực** | JWT stateless (HS256, hết hạn 12h) — production đặt `JWT_SECRET` riêng |
 | **Container** | Docker + Docker Compose |
-| **Kiểm thử** | Playwright (E2E trình duyệt thật, script ngoài repo) |
+| **Kiểm thử** | Playwright (E2E, script ngoài repo) |
+
+---
+
+## Luồng nghiệp vụ
+
+Sơ đồ Mermaid (render bằng VS Code, GitHub, trang `/gioi-thieu`...).
+
+### 1. Tổng quan vai trò
+
+```mermaid
+flowchart LR
+    subgraph NguoiDung["Người luyện (không cần đăng nhập)"]
+        A1[Trang chủ] --> A2[Luyện thi]
+        A2 --> A3[Xem kết quả + giải thích]
+        A3 --> A4[Báo lỗi câu hỏi]
+        A3 --> A5[Biểu đồ năng lực]
+    end
+    subgraph ThiSinh["Thí sinh (nhập tên + mã phòng)"]
+        B1[Phòng thi] --> B2[Làm bài + tự lưu]
+        B2 --> B3[Tự động thu bài]
+        B3 --> B4[Bảng xếp hạng]
+    end
+    subgraph QTV["Quản trị viên (đăng nhập)"]
+        C1[Import Excel/CSV] --> C2[Ngân hàng đề]
+        C2 --> C3[Tạo phòng thi]
+        C3 --> C4[Giám sát trực tiếp]
+        C4 --> C5[Đóng bài + sửa điểm]
+        C5 --> C6[Xuất báo cáo CSV]
+        A4 --> C7[Xử lý báo lỗi]
+        C2 --> C8[ML gợi ý độ khó]
+    end
+```
+
+### 2. Luyện thi
+
+```mermaid
+sequenceDiagram
+    actor U as Người luyện
+    participant FE as Frontend /luyện-thi
+    participant BE as Backend
+    U->>FE: Chọn môn + chủ đề (hỗn hợp) + độ khó + số câu
+    FE->>BE: POST /api/subjects/{mon}/practice-quiz
+    Note over BE: Lọc chủ đề → trộn độ khó theo tỉ lệ<br/>Dễ 50-30-20 · TB 30-40-30 · Khó 20-30-50<br/>→ trộn câu hỏi + đảo đáp án
+    BE-->>FE: Danh sách câu hỏi
+    U->>FE: Chọn đáp án từng câu → Nộp bài
+    FE->>BE: POST /api/subjects/{mon}/history (chấm + lưu)
+    BE-->>FE: Kết quả + giải thích
+    FE->>BE: GET /api/subjects/{mon}/competency
+    BE-->>FE: Biểu đồ năng lực (chủ đề / độ khó)
+```
+
+### 3. Import đề Excel/CSV
+
+```mermaid
+flowchart TD
+    S([File Excel/CSV]) --> H{Header hợp lệ? Câu hỏi - A - B - C - D - E - Đáp án - Độ khó - Chủ đề - Giải thích}
+    H -- Thiếu cột --> E1[Báo lỗi: thiếu cột bắt buộc]
+    H -- Đủ cột --> R[Duyệt từng dòng]
+    R --> V{>= 2 phương án? Đáp án khớp?}
+    V -- Không --> E2[Ghi cảnh báo + bỏ qua/chuẩn hóa]
+    V -- Ok --> N[Chuẩn hóa: Đáp án về A-E, Độ khó về De/TB/Kho]
+    N --> J[(questions.json của môn)]
+```
+
+### 4. Phòng thi online
+
+```mermaid
+sequenceDiagram
+    actor A as Quản trị viên
+    actor T as Thí sinh
+    participant BE as Backend
+    A->>BE: POST /api/rooms (môn, chủ đề, độ khó, số câu, giờ, trộn, max vi phạm)
+    BE-->>A: Mã phòng (vd X7K2PQ)
+    A->>T: Cấp mã phòng + giờ thi
+    T->>BE: POST /api/rooms/join (tên + mã)
+    BE-->>T: Đề riêng đã trộn + đáp án đảo
+    loop Mỗi câu trả lời
+        T->>BE: POST /api/rooms/answer (lưu ngay)
+    end
+    T->>BE: Chuyển tab → POST /api/rooms/violation
+    alt Vi phạm >= giới hạn
+        BE->>BE: Tự động thu bài
+    else Hết giờ / Nộp tay / QTV đóng phòng
+        T->>BE: POST /api/rooms/submit
+    end
+    BE-->>T: Điểm + bảng xếp hạng
+    A->>BE: GET /api/rooms/{id}/monitor (poll 3s)
+    A->>BE: PUT leaderboard (sửa điểm) / GET export (CSV)
+```
+
+### 5. Chống gian lận + tự động lưu/thu
+
+```mermaid
+stateDiagram-v2
+    [*] --> DangLam
+    DangLam --> LuuNhay: Bấm đáp án → POST /answer
+    LuuNhay --> DangLam
+    DangLam --> CanhBao: visibilitychange/blur → POST /violation
+    CanhBao --> DangLam: Số lần < max
+    CanhBao --> BiThu: Số lần >= max → chấm + submitted
+    DangLam --> BiThu: Hết giờ / Nộp bài / QTV đóng phòng
+    BiThu --> [*]
+```
+
+### 6. Báo lỗi + ML độ khó
+
+```mermaid
+flowchart LR
+    U[Người luyện] -->|POST /reports| Q[(reports.json)]
+    Q --> A[QTV duyệt → da_xu_ly]
+    H[(history.json snapshot)] --> M{Tính wrong_rate theo câu}
+    M --> S{>=60% Khó · 30-60% TB · <30% Dễ}
+    S --> G[Gợi ý + nút Áp dụng]
+```
 
 ---
 
@@ -59,150 +192,27 @@ Luồng nghiệp vụ (Mermaid): xem `docs/FLOWS.md`.
 
 ```
 eduquest/
-├── backend/
-│   ├── main.py              # Entrypoint uvicorn (python main.py)
-│   ├── requirements.txt
-│   ├── src/
-│   │   ├── app.py           # FastAPI app + CORS + routers
-│   │   ├── config.py        # DATA_ROOT (DATA_DIR > data/ > backend/data)
-│   │   ├── db.py            # SQLite WAL + DAO + migrate + backup
-│   │   ├── auth.py          # JWT HS256 12h, PBKDF2, lockout, ticket thi
-│   │   ├── bank.py          # Ngân hàng đề + import Excel/CSV + ML độ khó
-│   │   ├── examrooms.py     # Phòng thi: ticket, deadline, chấm, BXH
-│   │   ├── markdown_parser.py  # Parser đề .md (nội dung lưu trong DB)
-│   │   ├── grading_strategies.py  # Chấm theo loại câu (AI tự luận fail-closed)
-│   │   └── routes/          # auth/bank/rooms/subjects/browse/health
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx              # Router + guard đăng nhập khu ôn luyện
-│   │   ├── pages/               # Home/About/Practice/ExamRoom/Contact/Login/Register/Profile/Admin
-│   │   ├── components/          # QuizView, FlashcardView, CompetencyChart, ...
-│   │   ├── mapBackend.ts        # Mapper API ↔ Frontend types
-│   │   └── services/
-│   │       └── api.ts           # Gọi backend REST API (tự gắn token, Friendly error)
-│   └── Dockerfile
-├── data/                    # Thư mục dữ liệu duy nhất (persistent volume)
-│   ├── app.db               # Cơ sở dữ liệu SQLite toàn hệ thống
-│   ├── app.db-wal / -shm    # (WAL runtime, tự sinh)
-│   └── backups/             # Sao lưu tự động (1 bản/ngày, giữ 7 bản)
-├── docs/
-│   └── FLOWS.md             # Luồng nghiệp vụ (Mermaid)
+├── backend/            # FastAPI: src/app.py + routes/, bank.py, examrooms.py, auth.py, db.py
+├── frontend/           # React + Vite: src/App.tsx, pages/, components/, services/api.ts
+├── data/               # SQLite app.db (+ -wal/-shm) & backups/ — persistent volume
+├── samples/            # File đề mẫu (CSV) để thử tính năng import
 ├── docker-compose.yml
 └── README.md
 ```
 
-> Đề thi `.md` và ghi chú bài giảng lưu **trong `app.db`** (bảng `subject_exams`,
-> `subject_notes`), tự nạp 1 lần từ đĩa lúc khởi động nếu bảng còn rỗng.
-> Ảnh minh họa (nếu có) đặt ở `data/assets/<Tên môn>/`, phục vụ qua `GET /data/...`.
-
----
-
-## Cài đặt & Chạy
-
-### Yêu cầu
-
-- **Python** ≥ 3.11
-- **Node.js** ≥ 18
-- **Docker** (tuỳ chọn, nếu chạy bằng container)
-- **Gemini API Key** (tuỳ chọn, để chấm tự luận AI) — lấy miễn phí tại [aistudio.google.com](https://aistudio.google.com/app/apikey)
-
-### 1. Cấu hình (tuỳ chọn)
-
-Biến môi trường (có mặc định, không cần file `.env`):
-
-```env
-FRONTEND_PORT=3000
-BACKEND_PORT=8000
-GEMINI_API_KEY="your_api_key_here"
-JWT_SECRET="doi-thanh-chuoi-ngau-nhien-dai-o-production"
-```
-
-### 2. Chạy thủ công (Development)
-
-**Backend:**
-```bash
-cd backend
-pip install -r requirements.txt   # fastapi, uvicorn, python-multipart, openpyxl, ...
-python main.py
-# → http://localhost:8000 (đổi bằng BACKEND_PORT)
-# → Swagger UI: tắt mặc định, bật bằng ENABLE_DOCS=1
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:3000 (proxy /api, /health, /data về backend)
-```
-
-### 3. Chạy bằng Docker Compose
-
-```bash
-docker compose up --build
-```
-
-Ứng dụng sẽ chạy tại:
-- **Frontend:** `http://localhost:3000`
-- **Backend API:** `http://localhost:8000`
-
-Dữ liệu sống trên host ở `./data` (mount vào `/data`), rebuild image không mất.
-
----
-
-## API Endpoints
-
-> Khu ôn luyện cần **đăng nhập** (JWT Bearer, tự hết hạn 12h).
-> Thao tác quản trị cần role **admin**. Tài liệu tương tác tắt mặc định
-> (bật bằng `ENABLE_DOCS=1`).
-
-| Method | Endpoint | Quyền | Mô tả |
-| :----- | :------- | :---- | :---- |
-| `GET` | `/health` | mở | Kiểm tra trạng thái backend |
-| `GET` | `/data/{path}` | ảnh: mở, còn lại: admin (`*.db`/`*.wal` luôn 403) | File ảnh minh họa trong `data/` |
-| `POST` | `/api/auth/register` · `/api/auth/login` | mở | Tạo tài khoản / đăng nhập (mật khẩu ≥ 3 ký tự) |
-| `GET` | `/api/auth/me` · `PUT /api/auth/password` · `POST /api/auth/logout` | login | Phiên hiện tại / đổi mật khẩu / thu hồi token |
-| `GET` | `/api/auth/users` · `POST` · `PUT .../password` · `DELETE ...` | admin | Quản lý tài khoản |
-| `GET` | `/api/subjects` | mở | Liệt kê môn học (tên + cấu hình) |
-| `PUT` | `/api/subjects/{subject}/config` | admin | Bật/tắt, mô tả môn |
-| `GET` | `/api/subjects/{subject}/exams` | login | Danh sách đề thi |
-| `GET` | `/api/subjects/{subject}/exams/{exam_name}` | login | Câu hỏi 1 đề (kèm đáp án để tự học) |
-| `GET` | `/api/subjects/{subject}/notes` (+ `/{note_name}`) | login | Ghi chú bài giảng |
-| `GET` | `/api/subjects/{subject}/history` (+ `/{attempt_id}`) | login | Lịch sử làm bài / chi tiết 1 lượt |
-| `POST` | `/api/subjects/{subject}/history` | login | Lưu 1 lần làm bài (chấm ở server, gắn username) |
-| `DELETE` | `/api/subjects/{subject}/history/{attempt_id}` | admin | Xóa 1 lượt làm bài |
-| `GET` | `/api/subjects/{subject}/stats` | login | Câu hay sai + sai gần đây |
-| `POST` | `/api/subjects/{subject}/comprehensive-quiz` | login | Đề tổng hợp theo tỉ lệ loại câu |
-| `POST` | `/api/subjects/{subject}/ai-feedback` | login | Nhận xét tự luận (AI chạy server-side) |
-| `GET` | `/api/subjects/{subject}/bank` (+ `/topics`) | login | Ngân hàng đề + thống kê |
-| `PUT` | `/api/subjects/{subject}/bank` · `PUT .../bank/{qid}` · `DELETE .../bank` | admin | Ghi đè / sửa 1 câu (ML) / xóa cả bộ |
-| `POST` | `/api/import/preview` (multipart `.xlsx`/`.csv`, ≤ 10MB) | admin | Xem trước import |
-| `POST` | `/api/subjects/{subject}/practice-quiz` | login | Đề luyện theo chủ đề + độ khó + đảo đáp án |
-| `GET` | `/api/subjects/{subject}/competency` | login | Năng lực theo chủ đề/độ khó |
-| `GET` | `/api/subjects/{subject}/ml-difficulty` | login | ML gợi ý độ khó câu hỏi |
-| `POST` | `/api/subjects/{subject}/reports` | login | Báo lỗi câu hỏi (gắn người gửi) |
-| `GET` · `PUT` | `/api/subjects/{subject}/reports...` | admin | Duyệt báo lỗi |
-| `GET` | `/api/config/ai` (rút gọn cho user) · `PUT` · `POST .../test` | login / admin | Cấu hình AI (key chỉ admin thấy) |
-| `GET` · `PUT` | `/api/config/contact` | mở / admin | Thông tin liên hệ |
-| `POST` | `/api/rooms` · `GET /api/rooms` · `POST .../close` | admin | Tạo/liệt kê/đóng phòng thi |
-| `POST` | `/api/rooms/join` | mở (mã phòng) | Vào thi: tên + đơn vị + CCCD + mã → nhận đề (đã cắt đáp án) + ticket |
-| `POST` | `/api/rooms/answer` · `/violation` · `/submit` | mở (ticket) | Lưu từng câu / báo chuyển tab (debounce) / nộp bài |
-| `GET` | `/api/rooms/{id}/monitor` · `/leaderboard/full` · `PUT /leaderboard` · `/export` | admin | Giám sát (kèm CCCD) / sửa điểm / xuất CSV |
-| `GET` | `/api/rooms/{id}/leaderboard` | mở | BXH công khai (ẩn CCCD) |
-| `GET` | `/api/units` · `POST` · `DELETE` | mở / admin | Danh sách đơn vị |
+> Đề thi `.md` và ghi chú lưu **trong `app.db`** (bảng `subject_exams`, `subject_notes`),
+> tự nạp 1 lần từ đĩa lúc khởi động nếu bảng còn rỗng. Ảnh minh họa đặt ở
+> `data/assets/<Tên môn>/`, phục vụ qua `GET /data/...`.
 
 ---
 
 ## Thêm câu hỏi / đề mới
 
-Quản trị viên làm **hoàn toàn trên giao diện Web** (`/admin` → tab Ngân hàng đề),
-không cần chạm vào máy chủ:
+Làm **hoàn toàn trên Web** (`/admin` → tab Ngân hàng đề):
 
-1. Chuẩn bị file Excel/CSV theo mẫu:
-   `Câu hỏi | A | B | C | D | E | Đáp án | Độ khó | Chủ đề | Giải thích`
+1. Chuẩn bị Excel/CSV theo mẫu `Câu hỏi | A | B | C | D | E | Đáp án | Độ khó | Chủ đề | Giải thích`
    (đáp án A–E, độ khó Dễ/Trung bình/Khó).
 2. **Xem trước** (`POST /api/import/preview`) → kiểm tra lỗi từng dòng.
-3. **Ghi đè** vào môn (`PUT /api/subjects/{subject}/bank`).
-4. Đề thi `.md` mẫu ban đầu đã nạp sẵn trong DB; phòng thi lấy câu từ
-   ngân hàng + đề theo cấu hình (chủ đề/độ khó/số câu/trộn/đảo).
+3. **Ghi đè** (`PUT /api/subjects/{subject}/bank`).
+
+> Đề mẫu để thử import nằm ở [`samples/`](samples): `a_z.csv`, `trộn_x.csv`.

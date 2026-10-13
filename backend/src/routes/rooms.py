@@ -104,6 +104,8 @@ def join(body: JoinBody):
         "answers": sess.get("answers") or {},
         "violations": sess.get("violations", 0),
         "submitted": bool(sess.get("submitted")),
+        "score": sess.get("score", 0),
+        "total": sess.get("total", len(sess.get("questions") or [])),
         "show_answers": bool(show),
         "detail": store.session_detail(sess) if (sess.get("submitted") and show) else [],
     }

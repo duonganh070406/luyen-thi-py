@@ -88,17 +88,6 @@ export async function updateSubjectConfig(
   });
 }
 
-export async function listExams(subjectFolderName: string): Promise<string[]> {
-  const s = encodeURIComponent(subjectFolderName);
-  return fetchJson<string[]>(`/api/subjects/${s}/exams`);
-}
-
-export async function getExamData(subjectFolderName: string, examName: string): Promise<unknown[]> {
-  const s = encodeURIComponent(subjectFolderName);
-  const e = encodeURIComponent(examName);
-  return fetchJson<unknown[]>(`/api/subjects/${s}/exams/${e}`);
-}
-
 export async function getHistory(subjectFolderName: string): Promise<unknown[]> {
   const s = encodeURIComponent(subjectFolderName);
   return fetchJson<unknown[]>(`/api/subjects/${s}/history`);
@@ -166,17 +155,6 @@ export async function getHistoryAttempt(
 export async function getSubjectStats(subjectFolderName: string): Promise<any> {
   const s = encodeURIComponent(subjectFolderName);
   return fetchJson(`/api/subjects/${s}/stats`);
-}
-
-export async function listNotes(subjectFolderName: string): Promise<string[]> {
-  const s = encodeURIComponent(subjectFolderName);
-  return fetchJson<string[]>(`/api/subjects/${s}/notes`);
-}
-
-export async function getNoteData(subjectFolderName: string, noteName: string): Promise<{ content: string }> {
-  const s = encodeURIComponent(subjectFolderName);
-  const n = encodeURIComponent(noteName);
-  return fetchJson<{ content: string }>(`/api/subjects/${s}/notes/${n}`);
 }
 
 export async function getComprehensiveQuiz(
@@ -320,15 +298,6 @@ export async function getBank(subject: string): Promise<{ items: BankItem[]; tot
 export async function getBankTopics(subject: string): Promise<{ topics: string[]; counts: any }> {
   const s = encodeURIComponent(subject);
   return fetchJson(`/api/subjects/${s}/bank/topics`);
-}
-
-export async function updateBankQuestion(subject: string, qid: string, body: Partial<BankItem>): Promise<any> {
-  const s = encodeURIComponent(subject);
-  return fetchJson(`/api/subjects/${s}/bank/${encodeURIComponent(qid)}`, {
-    method: 'PUT',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
 }
 
 export interface ImportPreview {

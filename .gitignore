@@ -24,13 +24,8 @@ backend/data/*/reports.json
 /data/
 
 # Quy tắc tương tự cho backend/data/ (phục vụ deploy Vercel serverless)
+# Nguon cau hoi duy nhat: questions.json (bank CSV/Excel import qua Web).
 backend/data/*/*
-!backend/data/*/markdown/
-!backend/data/*/markdown/**
-!backend/data/*/note/
-!backend/data/*/note/**
-!backend/data/*/note.md/
-!backend/data/*/note.md/**
 !backend/data/*/subject_config.json
 !backend/data/*/questions.json
 

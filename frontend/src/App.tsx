@@ -23,10 +23,8 @@ import ExamRoomPage from './pages/ExamRoomPage.tsx';
 import AdminPage from './pages/AdminPage.tsx';
 
 import QuizView from './components/QuizView.tsx';
-import FlashcardView from './components/FlashcardView.tsx';
 import Sidebar from './components/layout/Sidebar.tsx';
 import SubjectDashboard from './components/subject/SubjectDashboard.tsx';
-import NoteView from './components/notes/NoteView.tsx';
 
 import SettingsModal from './components/modals/SettingsModal.tsx';
 import HistoryContextMenu from './components/modals/HistoryContextMenu.tsx';
@@ -40,31 +38,17 @@ import { useSettings } from './hooks/useSettings.ts';
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { subjectId, examName, noteName, attemptId, "*": splat } = useParams();
+  const { subjectId, attemptId } = useParams();
 
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const selectedSubjectId = useMemo(() => subjectId ? decodeURIComponent(subjectId) : null, [subjectId]);
-  const selectedNote = useMemo(() => {
-    const raw = noteName || splat;
-    return raw ? decodeURIComponent(raw) : null;
-  }, [noteName, splat]);
   const selectedAttemptId = useMemo(() => attemptId ? decodeURIComponent(attemptId) : null, [attemptId]);
-  const decodedExamName = useMemo(() => {
-    const raw = examName || splat;
-    return raw ? decodeURIComponent(raw) : null;
-  }, [examName, splat]);
 
   const activeTab = useMemo(() => {
     const path = location.pathname;
-    if (path.includes('/exam/') || path.includes('/quiz/') || path.includes('/history/')) {
+    if (path.includes('/quiz/') || path.includes('/history/')) {
       return 'quiz';
-    }
-    if (path.includes('/flashcard/')) {
-      return 'flashcard';
-    }
-    if (path.includes('/note/')) {
-      return 'note';
     }
     if (path.includes('/subject/')) {
       return 'subject';
@@ -97,19 +81,8 @@ function AppContent() {
   } = useSettings({ selectedSubjectId, setState });
 
   const {
-    selectedExam,
-    setSelectedExam,
-    examQuestions,
-    isLoadingExamData,
-    setIsLoadingExamData,
     subjectStats,
     isLoadingStats,
-    notes,
-    noteContent,
-    isLoadingNotes,
-    isLoadingNoteContent,
-    exams,
-    isLoadingExams,
     mostMissedPage,
     setMostMissedPage,
     recentErrorsPage,
@@ -123,7 +96,6 @@ function AppContent() {
     resetPagination,
   } = useSubjectResources({
     selectedSubjectId,
-    selectedNote,
     activeTab,
     selectedAttemptId,
     setState,
@@ -133,7 +105,6 @@ function AppContent() {
     activeAttempt,
     quizParams,
     timeLimit,
-    setTimeLimit,
     timeLeft,
     setTimeLeft,
     activeQuizQuestions,
@@ -144,17 +115,13 @@ function AppContent() {
     showResult,
     isGrading,
     handleStartQuiz,
-    handleStartExam,
     handleFinishQuiz,
   } = useQuizSession({
     selectedSubjectId,
-    decodedExamName,
     selectedAttemptId,
     attempts: state.attempts,
     setState,
     setIsLoadingData,
-    setIsLoadingExamData,
-    selectedExam,
     defaultQuizConfig,
   });
 
@@ -261,23 +228,11 @@ function AppContent() {
               historyPage={historyPage}
               setHistoryPage={setHistoryPage}
               pageSize={PAGE_SIZE}
-              exams={exams}
-              isLoadingExams={isLoadingExams}
-              selectedExam={selectedExam}
-              setSelectedExam={setSelectedExam}
-              examQuestions={examQuestions}
-              isLoadingExamData={isLoadingExamData}
-              timeLimit={timeLimit}
-              setTimeLimit={setTimeLimit}
-              onStartExam={handleStartExam}
               attempts={state.attempts}
               onOpenHistory={(attId) => navigate(`/subject/${selectedSubjectId}/history/${attId}`)}
               onContextMenu={setContextMenu}
               quizParams={quizParams}
               onStartQuiz={handleStartQuiz}
-              notes={notes}
-              isLoadingNotes={isLoadingNotes}
-              onOpenNote={(noteName) => navigate(`/subject/${encodeURIComponent(selectedSubjectId!)}/note/${encodeURIComponent(noteName)}`)}
             />
           )}
 
@@ -297,30 +252,6 @@ function AppContent() {
               timeLeft={timeLeft}
               setTimeLeft={setTimeLeft}
               activeAttempt={activeAttempt}
-            />
-          )}
-
-          {activeTab === 'note' && (
-            <NoteView
-              notes={notes}
-              selectedNote={selectedNote}
-              noteContent={noteContent}
-              isLoadingNoteContent={isLoadingNoteContent}
-              subjectName={activeSubject?.name}
-              onBack={() => navigate(`/subject/${selectedSubjectId}`)}
-              onSelectNote={(noteName) => navigate(`/subject/${encodeURIComponent(selectedSubjectId!)}/note/${encodeURIComponent(noteName)}`)}
-              onBackToList={() => navigate(`/subject/${encodeURIComponent(selectedSubjectId!)}/note`)}
-            />
-          )}
-
-          {activeTab === 'flashcard' && (
-            <FlashcardView
-              questions={activeQuizQuestions}
-              isLoading={isLoadingExamData}
-              subjectId={selectedSubjectId!}
-              examName={decodedExamName || ''}
-              onClose={() => navigate(`/subject/${selectedSubjectId}`)}
-              setState={setState}
             />
           )}
         </AnimatePresence>
@@ -387,9 +318,6 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin/:tab?" element={<AdminPage />} />
           <Route path="/subject/:subjectId" element={<RequireAuth><AppContent /></RequireAuth>} />
-          <Route path="/subject/:subjectId/note/*" element={<RequireAuth><AppContent /></RequireAuth>} />
-          <Route path="/subject/:subjectId/exam/*" element={<RequireAuth><AppContent /></RequireAuth>} />
-          <Route path="/subject/:subjectId/flashcard/*" element={<RequireAuth><AppContent /></RequireAuth>} />
           <Route path="/subject/:subjectId/quiz/random" element={<RequireAuth><AppContent /></RequireAuth>} />
           <Route path="/subject/:subjectId/history/:attemptId" element={<RequireAuth><AppContent /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

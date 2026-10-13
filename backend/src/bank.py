@@ -23,7 +23,6 @@ from typing import Any
 from fastapi import HTTPException
 
 from src import db as store
-from src.utils import parse_exam_content, subject_image_base
 
 LETTERS = ["A", "B", "C", "D", "E"]
 
@@ -140,55 +139,13 @@ def to_quiz_item(q: dict[str, Any]) -> dict[str, Any]:
 
 
 def unified_questions(subject: str) -> list[dict[str, Any]]:
-    """Gop bank (SQLite) + de markdown (SQLite) -> danh sach quiz item thong nhat."""
+    """Ngan hang de (SQLite) -> danh sach quiz item thong nhat (bank-only)."""
     out: list[dict[str, Any]] = []
     for q in load_bank(subject):
         try:
             out.append(to_quiz_item(q))
         except Exception:
             continue
-    # de markdown trong DB: gan topic/difficulty mac dinh de van luyen duoc
-    try:
-        img_base = subject_image_base(subject)
-        with store.session() as conn:
-            exam_names = store.exams_list(conn, subject)
-            exam_contents = [
-                (f, (store.exam_get(conn, subject, f) or {}).get("content", ""))
-                for f in exam_names
-            ]
-        for f, content in exam_contents:
-            try:
-                for raw in parse_exam_content(subject, f, content, image_base_url=img_base):
-                    if not isinstance(raw, dict):
-                        continue
-                    qtype = raw.get("type", "single")
-                    if qtype != "single":
-                        continue
-                    ans = raw.get("answer", 0)
-                    idx = ans if isinstance(ans, int) else 0
-                    opts = raw.get("options", []) or []
-                    out.append(
-                        {
-                            "id": f"md_{f}_{raw.get('id', len(out))}",
-                            "type": "single",
-                            "name": raw.get("name", ""),
-                            "question": raw.get("question", ""),
-                            "text": raw.get("question", ""),
-                            "options": opts,
-                            "answer": idx,
-                            "correctAnswers": [idx],
-                            "correctAnswer": idx,
-                            "answerLetter": LETTERS[idx] if 0 <= idx < len(LETTERS) else "A",
-                            "explanation": raw.get("explanation", ""),
-                            "difficulty": "Trung binh",
-                            "topic": "Chung",
-                            "source": f,
-                        }
-                    )
-            except Exception:
-                continue
-    except Exception:
-        pass
     return out
 
 
