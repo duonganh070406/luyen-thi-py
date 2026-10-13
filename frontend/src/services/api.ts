@@ -313,29 +313,12 @@ export async function getBankTopics(subject: string): Promise<{ topics: string[]
   return fetchJson(`/api/subjects/${s}/bank/topics`);
 }
 
-export async function addBankQuestion(subject: string, body: Omit<BankItem, 'id'>): Promise<any> {
-  const s = encodeURIComponent(subject);
-  return fetchJson(`/api/subjects/${s}/bank`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-}
-
 export async function updateBankQuestion(subject: string, qid: string, body: Partial<BankItem>): Promise<any> {
   const s = encodeURIComponent(subject);
   return fetchJson(`/api/subjects/${s}/bank/${encodeURIComponent(qid)}`, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify(body),
-  });
-}
-
-export async function deleteBankQuestion(subject: string, qid: string): Promise<any> {
-  const s = encodeURIComponent(subject);
-  return fetchJson(`/api/subjects/${s}/bank/${encodeURIComponent(qid)}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
   });
 }
 
@@ -370,22 +353,6 @@ export async function replaceBank(subject: string, items: any[]): Promise<{ ok: 
     headers: authHeaders(),
     body: JSON.stringify({ items }),
   });
-}
-
-export async function importBankFile(subject: string, file: File): Promise<{ ok: boolean; added: number; total: number; errors: string[] }> {
-  const s = encodeURIComponent(subject);
-  const fd = new FormData();
-  fd.append('file', file);
-  const res = await fetch(url(`/api/subjects/${s}/import`), {
-    method: 'POST',
-    headers: authHeaders(),
-    body: fd,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
-  }
-  return res.json();
 }
 
 // ---------- Luyen thi nang cao ----------

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import urllib.parse
-from pathlib import Path
-from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse
 
 from src import auth as auth_store
@@ -44,40 +42,3 @@ def serve_data_file(path: str, authorization: str | None = Header(default=None))
     if target.suffix.lower() not in _PUBLIC_EXTS and not _is_admin_token(authorization):
         raise HTTPException(status_code=403, detail="Cần quyền quản trị viên.")
     return FileResponse(path=str(target))
-
-
-@router.get("/api/browse")
-def browse_data(
-    path: str = "",
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-) -> dict[str, Any]:
-    """Duyệt cây thư mục data (chi admin). Truy vấn ?path=Toán học để xem thư mục con."""
-    target = _resolve_data(path)
-    if not target.exists():
-        raise HTTPException(status_code=404, detail="Path not found")
-
-    def _entry(p: Path) -> dict[str, Any]:
-        rel = p.relative_to(DATA_ROOT).as_posix()
-        if p.is_dir():
-            children = [
-                _entry(c) for c in p.iterdir()
-            ]
-            sorted_children = sorted(
-                children,
-                key=lambda e: (e["type"] == "file", e["name"].lower()),
-            )
-            return {
-                "name": p.name,
-                "type": "directory",
-                "path": rel,
-                "children": sorted_children,
-            }
-        return {
-            "name": p.name,
-            "type": "file",
-            "path": rel,
-            "size": p.stat().st_size,
-            "url": f"/data/{urllib.parse.quote(rel)}",
-        }
-
-    return _entry(target)

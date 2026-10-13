@@ -34,39 +34,6 @@ def get_topics(subject: str) -> dict[str, Any]:
     return {"topics": bank_store.bank_topics(subject), "counts": bank_store.bank_counts(subject)}
 
 
-class BankCreateBody(BaseModel):
-    question: str
-    options: list[str]
-    answer: str = "A"
-    difficulty: str = "Trung binh"
-    topic: str = "Chung"
-    explanation: str = ""
-
-
-@router.post("/api/subjects/{subject}/bank", status_code=201)
-def add_question(
-    subject: str,
-    body: BankCreateBody,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-):
-    if not body.question.strip() or len(body.options) < 2:
-        raise HTTPException(status_code=400, detail="Câu hỏi cần nội dung + ít nhất 2 phương án.")
-    res = bank_store.import_items(
-        subject,
-        [
-            {
-                "question": body.question.strip(),
-                "options": [o for o in body.options if str(o).strip()],
-                "answer": bank_store.normalize_answer(body.answer, len(body.options)),
-                "difficulty": bank_store.normalize_difficulty(body.difficulty),
-                "topic": body.topic.strip() or "Chung",
-                "explanation": body.explanation,
-            }
-        ],
-    )
-    return {"ok": True, **res}
-
-
 class BankUpdateBody(BaseModel):
     question: str | None = None
     options: list[str] | None = None
@@ -126,20 +93,6 @@ def delete_bank(
         if not store.subject_delete(conn, name):
             raise HTTPException(status_code=404, detail="Không tìm thấy bộ đề.")
     return {"ok": True}
-
-
-@router.delete("/api/subjects/{subject}/bank/{qid}")
-def delete_question(
-    subject: str,
-    qid: str,
-    _: auth_store.AuthUser = Depends(auth_store.require_admin),
-):
-    items = bank_store.load_bank(subject)
-    rest = [q for q in items if str(q.get("id")) != qid]
-    if len(rest) == len(items):
-        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
-    bank_store.save_bank(subject, rest)
-    return {"ok": True, "total": len(rest)}
 
 
 # ---------- Import Excel/CSV (format image.png) ----------
@@ -311,21 +264,6 @@ async def import_file(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi import: {e}")
-
-
-@router.get("/api/subjects/{subject}/import/template")
-def import_template() -> dict[str, Any]:
-    return {
-        "headers": ["Cau hoi", "A", "B", "C", "D", "E", "Dap an", "Do kho", "Chu de", "Giai thich"],
-        "example": [
-            {
-                "Cau hoi": "Ngay Phap luat nuoc Cong hoa xa hoi chu nghia Viet Nam duoc to chuc hang nam vao ngay nao?",
-                "A": "1 thang 5", "B": "2 thang 9", "C": "9 thang 11", "D": "20 thang 11", "E": "",
-                "Dap an": "C", "Do kho": "De", "Chu de": "Phap luat",
-                "Giai thich": "Ngay 9/11 hang nam la Ngay Phap luat cua Viet Nam.",
-            }
-        ],
-    }
 
 
 # ---------- Luyen thi: chon chu de hon hop + do kho + so luong + tron ----------
