@@ -1,4 +1,4 @@
-# EduQuest
+# Hệ thống kiểm tra đánh giá
 
 Hệ thống ôn luyện trắc nghiệm và tổ chức kỳ kiểm tra online: quản lý ngân hàng câu hỏi tập trung (SQLite), import đề Excel/CSV, thi trực tuyến chống gian lận và giám sát thời gian thực.
 
